@@ -42,3 +42,4 @@ Thumbs.db
 
 # deploy
 .vercel
+apps/web/out/
