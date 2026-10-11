@@ -227,5 +227,5 @@ The full build history — 11+ iterations of fixes, balance numbers and test run
 
 ## License
 
-Code: **[MIT](LICENSE)** © 2026 **Stemlen** (Shashank Kumar Rathour, Founder & CTO).
+Code: **[MIT](LICENSE)** © 2026 **Shashank Kumar Rathour** ([@Happyesss](https://github.com/Happyesss)). A personal open-source project.
 Sound effects: **CC0 1.0** by Kenney — not covered by the MIT licence; see [CREDITS](apps/web/public/sfx/CREDITS.md).

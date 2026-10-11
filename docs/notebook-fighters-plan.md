@@ -11,7 +11,7 @@ title: "Notebook Fighters — Game Design & Technical Plan"
 
 | | |
 |---|---|
-| **Prepared for** | Shashank Rathour (Founder/CTO) and the core dev team |
+| **Author** | Shashank Rathour ([@Happyesss](https://github.com/Happyesss)) |
 | **Date** | 9 October 2026 |
 | **Platform** | Browser (desktop + mobile web), Next.js + TypeScript |
 | **Status** | Pre-production plan — Phase 0 ready to start |
