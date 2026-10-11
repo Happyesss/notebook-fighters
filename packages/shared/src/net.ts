@@ -9,10 +9,15 @@
  * "ping" is answered with "pong" by the runtime itself (keepalive; never wakes the room).
  *
  *   client → room   join {name, strokes, token?} · i {f, b[]} · c {f, h} · ping {t, r?} · resync · leave
- *   room → client   welcome {code, seat, token} · lobby · rtt {r} · start · i {s, f, b[]} · c {s, f, h}
- *                   · desync {f, h} · peer {seat, connected, gone?} · log {logs} · pong {t}
- *   close codes     4000 left on purpose · 4001 seat taken over by a newer connection
+ *                   · accept · decline   (host only, while a friend waits in the lobby)
+ *   room → client   welcome {code, seat, token} · lobby {…, accepted} · ask {name, kind, strokes} (to the host)
+ *                   · rtt {r} · start · i {s, f, b[]} · c {s, f, h} · desync {f, h} · peer {seat, connected, gone?}
+ *                   · log {logs} · pong {t}
+ *   close codes     4000 left on purpose · 4001 seat taken over by a newer connection · 4403 the host declined
  *                   · 4404 no such room · 4409 room full / already fighting · 4410 seat expired
+ *
+ * The match starts only once the host (seat 0) has accepted the friend who took seat 1 (the host
+ * sees the friend's drawing in "ask"); declining closes the friend's socket (4403) and frees the seat.
  */
 import type { InkStroke, PlayerInput } from "./index";
 
@@ -23,7 +28,7 @@ export const DEFAULT_SERVER_PORT = 8787;
 export const SEAT_HOLD_MS = 60_000;
 /** an input message carries at most this many new frames (sent earlier when the peer would need them) */
 export const MAX_INPUT_BATCH = 4;
-export const CLOSE = { left: 4000, replaced: 4001, notFound: 4404, full: 4409, expired: 4410 } as const;
+export const CLOSE = { left: 4000, replaced: 4001, declined: 4403, notFound: 4404, full: 4409, expired: 4410 } as const;
 /** inputs are sent with the last few frames again (cheap insurance, plan §10) */
 export const REDUNDANCY = 8;
 /** clients report a checksum every this many frames */
@@ -65,10 +70,16 @@ export type JoinOptions = { name?: string; strokes?: InkStroke[] | null; physics
 export type JoinMsg = { name?: string; strokes?: InkStroke[] | null; token?: string };
 export type WelcomeMsg = { code: string; seat: 0 | 1; token: string; rejoined: boolean };
 /** server → client */
-export type LobbyMsg = { code: string; seats: [SeatInfo, SeatInfo]; you: 0 | 1 };
+/** `accepted`: the host let the friend in (the fight starts once the connection is measured) */
+export type LobbyMsg = { code: string; seats: [SeatInfo, SeatInfo]; you: 0 | 1; accepted: boolean };
+/** room → host: a friend took the other seat; accept or decline them */
+export type AskMsg = { name: string; kind: string; strokes: InkStroke[] | null };
 export type StartMsg = { code: string; drawings: [InkStroke[] | null, InkStroke[] | null]; names: [string, string]; delay: number; physics: "rapier" | "classic"; rtts: [number, number] };
 export type InputMsg = { s: 0 | 1; f: number; b: number[] };
 export type LogMsg = { logs: [number[], number[]] };
 export type SumMsg = { s: 0 | 1; f: number; h: number };
 export type DesyncMsg = { f: number; h: [number, number] };
 export type PeerMsg = { seat: 0 | 1; connected: boolean; gone?: boolean };
+
+/** what players see when online play is over the free plan's daily limits (or unreachable) */
+export const BUSY_MESSAGE = "Online is busy right now. Play the computer or a friend on this device.";

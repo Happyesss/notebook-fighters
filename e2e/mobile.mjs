@@ -62,19 +62,25 @@ for (const dev of DEVICES) {
   const stats = await p.getByTestId("slot-stats-0").innerText().catch(() => "");
   const afterDraw = await noScroll(p);
   check(/HP/.test(stats) && afterDraw.y === before.y, `${dev}: drew with touch → "${stats.replace(/\n/g, " | ").slice(0, 70)}…"; page did not scroll while drawing`);
-  await p.getByTestId("rival-bodybuilder").scrollIntoViewIfNeeded();
-  await p.waitForTimeout(300);
+  await p.screenshot({ path: `${OUT}/home_${slug(dev)}.png`, fullPage: true });
+  // Play with computer (top right) → the rival picker → the Bodybuilder → fight
   // (Chromium's touch emulation sometimes swallows the click of the first tap after the scripted
   // drawing gestures; a second tap is what a person would do)
   let taps = 0;
-  while (taps < 3 && (await p.getByTestId("rival-bodybuilder").getAttribute("aria-pressed")) !== "true") {
-    await p.getByTestId("rival-bodybuilder").tap();
+  await p.getByTestId("fight-cpu").scrollIntoViewIfNeeded();
+  while (taps < 3 && !(await p.getByTestId("rival-picker").count())) {
+    await p.getByTestId("fight-cpu").tap();
     taps++;
     await p.waitForTimeout(250);
   }
-  if (taps > 1) console.log(`     (${dev}: the rival card needed ${taps} taps)`);
-  await p.screenshot({ path: `${OUT}/home_${slug(dev)}.png`, fullPage: true });
-  await p.getByTestId("fight-cpu").tap();
+  while (taps < 6 && (await p.getByTestId("pick-bodybuilder").getAttribute("aria-checked")) !== "true") {
+    await p.getByTestId("pick-bodybuilder").tap();
+    taps++;
+    await p.waitForTimeout(250);
+  }
+  if (taps > 2) console.log(`     (${dev}: the picker needed ${taps} taps)`);
+  await p.screenshot({ path: `${OUT}/picker_${slug(dev)}.png` });
+  await p.getByTestId("pick-fight").tap();
   await p.waitForFunction(() => window.__nf?.sim, null, { timeout: 60000 });
   const rival = await p.evaluate(() => window.__nf.sim.rivalEntry?.id);
   const [sx, sy, sr] = await centre(p, "tp-stick");

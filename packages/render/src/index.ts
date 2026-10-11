@@ -201,7 +201,7 @@ export class NotebookView {
     canvas.style.height = "100%";
     canvas.style.display = "block";
     host.appendChild(canvas);
-    const r = host.getBoundingClientRect();
+    const r = host.clientWidth > 0 ? { width: host.clientWidth, height: host.clientHeight } : host.getBoundingClientRect();
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     const app = new PIXI.Application();
     // ?aa=0 turns MSAA off (diagnostics: software WebGL spends most of its time resolving MSAA)
@@ -234,7 +234,8 @@ export class NotebookView {
   }
 
   private resize() {
-    const r = this.host.getBoundingClientRect();
+    // layout size, not the on-screen box: a view turned sideways in CSS (phone "Rotate") keeps its own width/height
+    const r = this.host.clientWidth > 0 ? { width: this.host.clientWidth, height: this.host.clientHeight } : this.host.getBoundingClientRect();
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     const w = Math.max(2, Math.round(r.width * dpr));
     const h = Math.max(2, Math.round(r.height * dpr));

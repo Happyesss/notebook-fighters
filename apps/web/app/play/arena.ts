@@ -10,8 +10,10 @@ export type ArenaFit = "phone-landscape" | "phone-portrait" | "tablet" | "deskto
 export function arenaFit(): ArenaFit {
   if (typeof window === "undefined") return "desktop";
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  // an upright phone playing sideways (Rotate on iOS): frame it as landscape
+  const turned = document.documentElement.dataset.rotated === "1" && window.innerHeight > window.innerWidth;
+  const w = turned ? window.innerHeight : window.innerWidth;
+  const h = turned ? window.innerWidth : window.innerHeight;
   if (coarse && h <= 520 && w > h) return "phone-landscape";
   if (coarse && w <= 600) return "phone-portrait";
   if (coarse) return "tablet";

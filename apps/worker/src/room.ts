@@ -3,6 +3,8 @@
  *
  * The fight is deterministic lockstep on the two clients, so the room only:
  *  · seats two players and holds their drawings (authoritative for the lobby → fight phase),
+ *  · lets the host (seat 0) accept or decline the friend who sat down (the fight waits for "accept";
+ *    "decline" closes the friend's socket with 4403 and frees the seat for someone else),
  *  · collects each client's measured round trip and picks the input delay,
  *  · relays input frames and keeps the full input log of both seats (a reconnecting or reloaded
  *    client fast-forwards from it),
@@ -23,6 +25,7 @@ import {
   SEAT_HOLD_MS,
   pickDelay,
   type InkStroke,
+  type AskMsg,
   type JoinMsg,
   type LobbyMsg,
   type SeatInfo,
@@ -48,6 +51,8 @@ type Meta = {
   code: string;
   physics: "rapier" | "classic";
   phase: "lobby" | "fight";
+  /** the host accepted the friend in seat 1 (reset whenever a lobby seat changes) */
+  accepted?: boolean;
   start: StartMsg | null;
   seats: [Seat | null, Seat | null];
   stats: Stats;
@@ -93,6 +98,7 @@ export class Room extends DurableObject {
       code,
       physics,
       phase: "lobby",
+      accepted: false,
       start: null,
       seats: [null, null],
       stats: { inputs: 0, checksums: 0, desyncs: 0, reconnects: 0, messages: 0 },
@@ -114,6 +120,7 @@ export class Room extends DurableObject {
       phase: m.phase,
       physics: m.physics,
       delay: m.start?.delay ?? null,
+      accepted: !!m.accepted,
       seats: m.seats.map((s) => (s ? { name: s.name, kind: s.kind, connected: s.connected, gone: s.gone } : null)),
       frames: [this.logs[0].length, this.logs[1].length],
       ...m.stats,
@@ -236,6 +243,32 @@ export class Room extends DurableObject {
       }
       case "resync":
         return this.send(ws, "log", { logs: this.logs });
+      case "accept": {
+        // only the host, only in the lobby, only with a friend seated
+        if (s !== 0 || m.phase !== "lobby" || !m.seats[1] || m.accepted) return;
+        m.accepted = true;
+        console.log(`[${m.code}] host accepted ${m.seats[1].name}`);
+        await this.save();
+        this.sendLobby();
+        return this.maybeStart();
+      }
+      case "decline": {
+        const guest = m.seats[1];
+        if (s !== 0 || m.phase !== "lobby" || !guest) return;
+        m.seats[1] = null;
+        m.accepted = false;
+        const gws = this.sockets.get(guest.cid);
+        if (gws) {
+          // the socket no longer speaks for the seat, so its close is a no-op in closed()
+          gws.serializeAttachment({ cid: guest.cid, seat: -1 } satisfies Attachment);
+          this.sockets.delete(guest.cid);
+          this.reject(gws, CLOSE.declined, "the host declined");
+        }
+        console.log(`[${m.code}] host declined ${guest.name}; seat 1 is free again`);
+        await this.save();
+        this.sendLobby();
+        return;
+      }
       case "leave":
         try {
           ws.close(CLOSE.left, "left");
@@ -272,6 +305,7 @@ export class Room extends DurableObject {
         this.send(ws, "welcome", { code: m.code, seat: s as SeatNo, token: seat.token, rejoined: true } satisfies WelcomeMsg);
         this.broadcast("peer", { seat: s, connected: true });
         this.sendLobby();
+        if (s === 0) this.askHost();
         if (m.start) {
           this.send(ws, "start", m.start);
           this.send(ws, "log", { logs: this.logs });
@@ -298,12 +332,21 @@ export class Room extends DurableObject {
     await this.save();
     this.send(ws, "welcome", { code: m.code, seat: s, token: m.seats[s]!.token, rejoined: false } satisfies WelcomeMsg);
     this.sendLobby();
+    this.askHost();
   }
 
-  /** both seated and each round trip measured (3 samples) → pick the delay, fight */
+  /** both seats taken in the lobby and not yet accepted: show the host who wants to play (with the drawing) */
+  private askHost() {
+    const m = this.meta!;
+    const guest = m.seats[1];
+    if (m.phase !== "lobby" || !m.seats[0] || !guest || m.accepted) return;
+    this.sendTo(0, "ask", { name: guest.name, kind: guest.kind, strokes: guest.strokes } satisfies AskMsg);
+  }
+
+  /** both seated, the host accepted, and each round trip measured (3 samples) → pick the delay, fight */
   private async maybeStart() {
     const m = this.meta!;
-    if (m.phase !== "lobby") return;
+    if (m.phase !== "lobby" || !m.accepted) return;
     const [a, b] = m.seats;
     if (!a || !b || a.rtts.length < 3 || b.rtts.length < 3) return;
     const ra = median(a.rtts);
@@ -337,6 +380,8 @@ export class Room extends DurableObject {
     const now = Date.now();
     if (m.phase === "lobby") {
       m.seats[s] = null;
+      // a new pairing needs a new "accept"
+      m.accepted = false;
       console.log(`[${m.code}] seat ${s} left the lobby`);
       this.sendLobby();
     } else {
@@ -412,7 +457,7 @@ export class Room extends DurableObject {
   private sendLobby() {
     const m = this.meta!;
     const seats = m.seats.map((x): SeatInfo => (x ? { name: x.name, kind: x.kind, connected: x.connected } : null)) as [SeatInfo, SeatInfo];
-    for (const s of [0, 1] as const) this.sendTo(s, "lobby", { code: m.code, seats, you: s } satisfies LobbyMsg);
+    for (const s of [0, 1] as const) this.sendTo(s, "lobby", { code: m.code, seats, you: s, accepted: !!m.accepted } satisfies LobbyMsg);
   }
 }
 

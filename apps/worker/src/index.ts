@@ -10,6 +10,9 @@
  *   GET  /api/rooms/:code/ws      → WebSocket upgrade, handed to the room's Durable Object
  *   GET  /r/:code                 → 302 /online?join=CODE (the share link)
  *   anything else                 → static assets (404.html when nothing matches)
+ * Any /api failure (a Durable Object overloaded or over the free plan's daily limits) answers a
+ * JSON 503 { error: "busy" } (the client says "Online is busy right now"); a missing room is
+ * still the room's own 4404 close / { exists: false }.
  */
 import { isRoomCode, makeRoomCode } from "@nf/shared";
 export { Room } from "./room";
@@ -36,36 +39,14 @@ export default {
     const path = url.pathname;
 
     if (path.startsWith("/api/")) {
-      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-      if (path === "/api/health") return json({ ok: true, service: "notebook-fighters", time: new Date().toISOString() });
-
-      if (path === "/api/rooms" && request.method === "POST") {
-        let physics: "rapier" | "classic" = "rapier";
-        try {
-          const body = (await request.json()) as { physics?: string };
-          if (body?.physics === "classic") physics = "classic";
-        } catch {
-          // no body: defaults
-        }
-        // a random code is almost always free; the room itself refuses a code that's in use
-        for (let i = 0; i < 8; i++) {
-          const code = makeRoomCode();
-          if (await room(env, code).claim(code, physics)) return json({ code }, 201);
-        }
-        return json({ error: "no free room code, try again" }, 503);
+      try {
+        return await api(request, env, path);
+      } catch (e) {
+        // Durable Object overloaded / over the free plan's daily limits / reset: a JSON 503 the
+        // client shows as "Online is busy right now", never Cloudflare's HTML error page
+        console.error("api error", path, e instanceof Error ? e.message : String(e));
+        return json({ error: "busy" }, 503);
       }
-
-      const m = path.match(/^\/api\/rooms\/([A-Za-z0-9]{6})(\/ws)?$/);
-      if (m) {
-        const code = m[1].toUpperCase();
-        if (!isRoomCode(code)) return json({ error: "bad room code" }, 400);
-        if (m[2]) {
-          if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") return json({ error: "expected a WebSocket upgrade" }, 426);
-          return room(env, code).fetch(request);
-        }
-        if (request.method === "GET") return json(await room(env, code).info());
-      }
-      return json({ error: "not found" }, 404);
     }
 
     const r = path.match(/^\/r\/([A-Za-z0-9]{6})\/?$/);
@@ -77,3 +58,37 @@ export default {
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+/** the /api routes; anything thrown here (Durable Object errors) becomes the JSON 503 above */
+async function api(request: Request, env: Env, path: string): Promise<Response> {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  if (path === "/api/health") return json({ ok: true, service: "notebook-fighters", time: new Date().toISOString() });
+
+  if (path === "/api/rooms" && request.method === "POST") {
+    let physics: "rapier" | "classic" = "rapier";
+    try {
+      const body = (await request.json()) as { physics?: string };
+      if (body?.physics === "classic") physics = "classic";
+    } catch {
+      // no body: defaults
+    }
+    // a random code is almost always free; the room itself refuses a code that's in use
+    for (let i = 0; i < 8; i++) {
+      const code = makeRoomCode();
+      if (await room(env, code).claim(code, physics)) return json({ code }, 201);
+    }
+    return json({ error: "busy", detail: "no free room code, try again" }, 503);
+  }
+
+  const m = path.match(/^\/api\/rooms\/([A-Za-z0-9]{6})(\/ws)?$/);
+  if (m) {
+    const code = m[1].toUpperCase();
+    if (!isRoomCode(code)) return json({ error: "bad room code" }, 400);
+    if (m[2]) {
+      if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") return json({ error: "expected a WebSocket upgrade" }, 426);
+      return room(env, code).fetch(request);
+    }
+    if (request.method === "GET") return json(await room(env, code).info());
+  }
+  return json({ error: "not found" }, 404);
+}

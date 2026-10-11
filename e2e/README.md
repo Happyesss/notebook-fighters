@@ -12,7 +12,9 @@ node twop.mjs          # two players on one keyboard
 node feel.mjs          # hit-stop, KO slow-mo, replay, Save clip
 node sfx.mjs           # every sound credited, served, decoded and fired on the right frame
 node sketch.mjs        # equal drawing boxes, the expand pad (colours, eraser, undo), coloured fighter, room-code Copy (needs the Worker)
-node online.mjs        # two browsers, one room, lockstep in sync (also over lag)
+node online.mjs        # two browsers, one room, lockstep in sync (also over lag); host Accept / Decline; iPhone joiner draws first + Rotate
+node home.mjs          # notebook: 3 buttons top right, "+" boxes saved across reloads, draw-first, rival picker, character cards, Rotate (needs the Worker)
+node busy.mjs          # online over the free plan's limits (503 / 429 1027 / no network / WS refused) → "Online is busy right now" + offline options
 node human.mjs         # a "casual human" bot plays real rounds
 ```
 

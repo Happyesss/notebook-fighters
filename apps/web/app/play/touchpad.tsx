@@ -6,6 +6,7 @@
  */
 import { useRef } from "react";
 import type { KeyMap } from "./controls";
+import { rotatedView } from "./rotate";
 
 type Props = {
   map: KeyMap;
@@ -35,11 +36,14 @@ export function TouchPad({ map, keys, taps, punch = "Punch", kick = "Kick", who 
       keys.current.delete(key);
     }
   };
-  const stick = (dx: number, dy: number) => {
+  const stick = (sx: number, sy: number) => {
     const c = centre.current;
     if (!c) return;
+    // the view turned sideways in CSS (rotate 90° clockwise): the game's right is the screen's down
+    const [dx, dy] = rotatedView() ? [sy, -sx] : [sx, sy];
     const nx = Math.max(-1, Math.min(1, dx / c.r));
     const ny = Math.max(-1, Math.min(1, dy / c.r));
+    // (the knob moves inside the turned view, so it follows the game's axes)
     if (knob.current) knob.current.style.transform = `translate(${nx * c.r * 0.55}px, ${ny * c.r * 0.55}px)`;
     set(k("left"), nx < -0.35);
     set(k("right"), nx > 0.35);

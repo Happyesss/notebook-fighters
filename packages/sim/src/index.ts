@@ -8,3 +8,4 @@ export * from "./lockstep";
 export * from "./online";
 export * from "./net-room";
 export * from "./roster";
+export * from "./profile";

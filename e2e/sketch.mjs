@@ -110,6 +110,15 @@ for (const dev of DEVICES) {
     return !!(re && rc && re.width > 20 && Math.abs(re.top - rc.top) < 4 && rc.left >= re.right - 1);
   }));
   check(tools.every(Boolean), `${dev}: "expand" sits beside "clear" on both boxes`);
+  // …inside each box, in its top-right corner (where no drawing starts)
+  const inside = await p.evaluate(() => [0, 1].map((i) => {
+    const box = document.querySelector(`[data-testid="slot-${i}"]`).getBoundingClientRect();
+    return [`expand-${i}`, `clear-${i}`].every((id) => {
+      const r = document.querySelector(`[data-testid="${id}"]`).getBoundingClientRect();
+      return r.left >= box.left + box.width * 0.5 && r.right <= box.right + 0.5 && r.top >= box.top - 0.5 && r.bottom <= box.top + box.height * 0.16;
+    });
+  }));
+  check(inside.every(Boolean), `${dev}: expand + clear inside each box at its top right`);
   await p.getByTestId("slot-1").scrollIntoViewIfNeeded();
   await p.screenshot({ path: `${OUT}/boxes_${slug(dev)}.png` });
 
@@ -121,7 +130,8 @@ for (const dev of DEVICES) {
   await p.waitForTimeout(200);
   const pad = await p.getByTestId("sketch-canvas").boundingBox();
   const vp = p.viewportSize();
-  check(pad.width >= r0.width * 1.3 && pad.x >= 0 && pad.y >= 0 && pad.x + pad.width <= vp.width + 1 && pad.y + pad.height <= vp.height + 1 && Math.abs(pad.width / pad.height - 0.75) < 0.02,
+  // bigger than the box (×1.3), or as tall as a short landscape phone allows (the boxes there already fit the screen height)
+  check((pad.width >= r0.width * 1.3 || (pad.width > r0.width * 1.1 && pad.height >= vp.height * 0.75)) && pad.x >= 0 && pad.y >= 0 && pad.x + pad.width <= vp.width + 1 && pad.y + pad.height <= vp.height + 1 && Math.abs(pad.width / pad.height - 0.75) < 0.02,
     `${dev}: big pad ${Math.round(pad.width)}×${Math.round(pad.height)} (box ${Math.round(r0.width)}×${Math.round(r0.height)}), 3:4, fully on screen`);
   const at = (q) => [pad.x + q.x * pad.width, pad.y + q.y * pad.height];
   for (const s of FIGHTER) {
@@ -163,11 +173,11 @@ for (const dev of DEVICES) {
     check(stats2 === stats && focused === "expand-0", `${dev}: Escape closes the pad without changing the drawing; focus back on "expand" (${focused})`);
   }
 
-  // 3) fight with it
-  await p.getByTestId("rival-ninja").scrollIntoViewIfNeeded();
-  await tapUntil(t, "rival-ninja", pressed(t, "rival-ninja"));
+  // 3) fight with it: Play with computer → pick the Ninja → fight
   await p.getByTestId("fight-cpu").scrollIntoViewIfNeeded();
-  await tap(t, "fight-cpu");
+  await tapUntil(t, "fight-cpu", async () => (await p.getByTestId("rival-picker").count()) > 0);
+  await tapUntil(t, "pick-ninja", async () => (await p.getByTestId("pick-ninja").getAttribute("aria-checked")) === "true");
+  await tap(t, "pick-fight");
   await p.waitForFunction(() => window.__nf?.sim, null, { timeout: 60000 });
   const saved = await p.evaluate(() => JSON.parse(localStorage.getItem("nf:fighter") || "[]"));
   const colours = [...new Set(saved.map((s) => s.color))];
@@ -192,6 +202,8 @@ for (const [dev, noApi] of [["Desktop 1280x800", false], ["iPhone 13", true], ["
   const ctx = await b.newContext({ ...opts });
   if (!noApi) await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE_ONLINE });
   else await ctx.addInitScript(() => Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true }));
+  // a room needs your drawing first
+  await ctx.addInitScript((s) => localStorage.getItem("nf:fighter") || localStorage.setItem("nf:fighter", JSON.stringify(s)), JSON.parse(fs.readFileSync(new URL("./drawings.json", import.meta.url), "utf8")).find((d) => d.name === "clean").strokes);
   const p = await ctx.newPage();
   await p.goto(BASE_ONLINE + "/online?create", { waitUntil: "load", timeout: 90000 });
   await p.waitForSelector('[data-testid="room-code"]', { timeout: 30000 });

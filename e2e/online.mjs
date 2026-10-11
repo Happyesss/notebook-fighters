@@ -16,6 +16,20 @@ const B = (process.env.BASE || "http://localhost:8787").replace(/\/$/, "");
 // extra query for every client page, e.g. Q="physics=rapier&renderer=pixi" (the host's physics is the room's)
 const XQ = process.env.Q ? "&" + process.env.Q : "";
 const OUTP = process.env.TAG ? `_${process.env.TAG}` : "";
+// screenshots of the accept step, the joiner's wait and the phone flow (default: OUT)
+const SHOTS = process.env.SHOTS || OUT;
+fs.mkdirSync(SHOTS, { recursive: true });
+/** the host sees the friend's drawing and accepts; until then the friend waits and nothing starts */
+async function acceptStep(label, host, friend, shot = false) {
+  await host.page.getByTestId("accept-prompt").waitFor({ timeout: 30000 });
+  await friend.page.getByTestId("waiting-accept").waitFor({ timeout: 30000 });
+  const name = await host.page.getByTestId("ask-name").innerText();
+  const thumb = await host.page.locator(".ask-thumb").count();
+  const started = await Promise.all([host, friend].map((p) => p.page.evaluate(() => !!window.__nf?.session?.start)));
+  if (shot) await Promise.all([host.page.screenshot({ path: `${SHOTS}/accept_prompt_host${OUTP}.png` }), friend.page.screenshot({ path: `${SHOTS}/joiner_waiting${OUTP}.png` })]);
+  check(thumb === 1 && started.every((v) => !v), `${label}: host asked about "${name}" (with the drawing); friend sees "Waiting for host to accept…"; no fight yet`);
+  await host.page.getByTestId("accept-join").click();
+}
 const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}), args: ["--host-resolver-rules=MAP fonts.googleapis.com ~NOTFOUND, MAP fonts.gstatic.com ~NOTFOUND"] });
 let bad = 0;
 const check = (ok, msg) => {
@@ -35,7 +49,8 @@ const roomInfo = async (code) => (await fetch(`${B}/api/rooms/${code}`)).json();
   check(nope.status === 404, `unknown page → ${nope.status} (404.html)`);
 }
 async function player(name, drawing) {
-  const ctx = await browser.newContext({ viewport: { width: 960, height: 600 } });
+  const [vw, vh] = (process.env.VIEW || "960x600").split("x").map(Number);
+  const ctx = await browser.newContext({ viewport: { width: vw, height: vh } });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errs.push(`${name}: ${e}`));
   page.on("console", (m) => m.type() === "error" && !/ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|ERR_TIMED_OUT|WebSocket/.test(m.text()) && errs.push(`${name}: ${m.text()}`));
@@ -91,6 +106,7 @@ async function match(label, q, opts = {}) {
   const redirect = await Bp.ctx.request.get(share, { maxRedirects: 0 });
   check(/^[A-Z2-9]{6}$/.test(code) && share.endsWith(`/r/${code}`) && redirect.status() === 302 && redirect.headers().location?.includes(`/online?join=${code}`), `${label}: room ${code}, link ${share} → ${redirect.status()} ${redirect.headers().location}`);
   await Bp.page.goto(`${B}/online?join=${code}&${q}&autoplay=99&name=Ben${XQ}`, { waitUntil: "networkidle" });
+  await acceptStep(label, A, Bp, !!opts.shot);
   await Promise.all([A, Bp].map((p) => p.page.waitForFunction(() => window.__nf?.session?.lock && window.__nf?.view, null, { timeout: 60000 })));
   let shot = false;
   let a, b;
@@ -137,10 +153,22 @@ if (process.env.ONLY !== "1") {
   await A.page.getByTestId("create-room").click();
   await A.page.getByTestId("room-code").waitFor({ timeout: 30000 });
   const code = await A.page.getByTestId("room-code").innerText();
+  // someone else gets the link first: the host declines, they're told so, and the seat is free again
+  const C = await player("C", "sloppy");
+  await C.page.goto(`${B}/r/${code}`, { waitUntil: "networkidle" });
+  await A.page.getByTestId("accept-prompt").waitFor({ timeout: 30000 });
+  await A.page.getByTestId("decline-join").click();
+  await C.page.getByTestId("lobby-error").waitFor({ timeout: 15000 });
+  const why = await C.page.getByTestId("lobby-error").innerText();
+  await A.page.waitForFunction(() => !document.querySelector('[data-testid="accept-prompt"]') && document.querySelectorAll('.seats li[data-filled="true"]').length === 1, null, { timeout: 10000 });
+  await C.page.screenshot({ path: `${SHOTS}/declined_joiner${OUTP}.png` });
+  check(/declined/i.test(why), `${label}: host declined the first friend → "${why}"; seat 2 free again`);
+  await C.ctx.close();
   // B types the code in instead of using the link
   await Bp.page.goto(`${B}/online?lag=40&jitter=10${XQ}`, { waitUntil: "networkidle" });
   await Bp.page.getByTestId("join-code").fill(code);
   await Bp.page.getByTestId("join-room").click();
+  await acceptStep(label, A, Bp);
   await Promise.all([A, Bp].map((p) => p.page.waitForFunction(() => window.__nf?.session?.lock && window.__nf?.view, null, { timeout: 60000 })));
   // wait out 3-2-1
   await A.page.waitForFunction(() => window.__nf.sim.curr.countdown <= 0, null, { timeout: 20000 });
@@ -171,6 +199,59 @@ if (process.env.ONLY !== "1") {
   await A.page.screenshot({ path: `${OUT}/online_after_reload_A${OUTP}.png` });
   await A.ctx.close();
   await Bp.ctx.close();
+}
+// ---- 4: a friend on a phone opens the link with nothing drawn: draw first (big pad), wait for the host, fight, rotate
+if (!process.env.ONLY || process.env.ONLY === "4") {
+  const label = "4 phone joiner";
+  const A = await player("A", "clean");
+  await A.page.goto(`${B}/online${XQ ? "?" + XQ.slice(1) : ""}`, { waitUntil: "networkidle" });
+  await A.page.getByTestId("create-room").click();
+  await A.page.getByTestId("room-code").waitFor({ timeout: 30000 });
+  const code = await A.page.getByTestId("room-code").innerText();
+  const { devices } = await import("playwright");
+  const ctx = await browser.newContext({ ...devices["iPhone 13"] });
+  // iOS Safari has no orientation lock: the Rotate button turns the view in CSS instead
+  await ctx.addInitScript(() => { try { delete ScreenOrientation.prototype.lock; } catch {} });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errs.push(`D: ${e}`));
+  const D = { ctx, page, name: "D" };
+  await page.goto(`${B}/r/${code}`, { waitUntil: "networkidle" });
+  await page.getByTestId("draw-first").waitFor({ timeout: 15000 });
+  const noSeat = (await roomInfo(code)).seats.filter(Boolean).length;
+  await page.screenshot({ path: `${SHOTS}/joiner_draw_first_iPhone_13${OUTP}.png` });
+  await page.getByTestId("online-draw").tap();
+  await page.getByTestId("sketch-canvas").waitFor();
+  const pad = await page.getByTestId("sketch-canvas").boundingBox();
+  const cdp = await ctx.newCDPSession(page);
+  const tev = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id, radiusX: 4, radiusY: 4, force: 1 })) });
+  for (const s of SET.find((d) => d.name === "clean").strokes) {
+    const pts = s.points.map((q) => [pad.x + q.x * pad.width, pad.y + q.y * pad.height]);
+    await tev("touchStart", [pts[0]]);
+    for (const q of pts.slice(1)) await tev("touchMove", [q]);
+    await tev("touchEnd", []);
+  }
+  for (let i = 0; i < 4 && (await page.getByTestId("sketch-modal").count()); i++) {
+    await page.getByTestId("sketch-done").tap();
+    await page.waitForTimeout(150);
+  }
+  await acceptStep(label, A, D, false);
+  await page.screenshot({ path: `${SHOTS}/joiner_after_accept_iPhone_13${OUTP}.png` }).catch(() => {});
+  await Promise.all([A, D].map((p) => p.page.waitForFunction(() => window.__nf?.session?.lock && window.__nf?.view, null, { timeout: 60000 })));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("nf:fighters") || "null"));
+  check(noSeat === 1 && saved?.fighters?.some((f) => f.strokes.length >= 6), `${label}: /r/${code} with no drawing → "draw first" (no seat taken: ${noSeat} seated); the drawing from the pad is saved to the notebook and used to join`);
+  // rotate the online fight on the upright iPhone
+  await page.waitForTimeout(800);
+  await page.getByTestId("rotate").tap();
+  await page.waitForTimeout(500);
+  const rot = await page.evaluate(() => ({ r: document.documentElement.dataset.rotated, fit: document.documentElement.dataset.fit, box: document.querySelector(".stage").getBoundingClientRect().toJSON(), w: document.querySelector(".canvas-host").clientWidth, h: document.querySelector(".canvas-host").clientHeight }));
+  await page.screenshot({ path: `${SHOTS}/online_rotate_iPhone_13${OUTP}.png` });
+  check(rot.r === "1" && rot.fit === "phone-landscape" && rot.w > rot.h && rot.box.height > rot.box.width, `${label}: Rotate in the online fight → sideways view (${rot.w}×${rot.h} arena on a ${Math.round(rot.box.width)}×${Math.round(rot.box.height)} upright screen)`);
+  // let the rotated fight run long enough for both sides to post ≥10 checksums
+  await page.waitForTimeout(12000);
+  const [a, d] = await Promise.all([state(A.page), state(page)]);
+  compare(label, a, d);
+  await A.ctx.close();
+  await ctx.close();
 }
 check(errs.length === 0, `page errors: ${errs.length ? errs.slice(0, 6).join(" | ") : 0}`);
 // the side-by-side shot: two clients mid-match

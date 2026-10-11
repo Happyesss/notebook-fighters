@@ -3,6 +3,9 @@
 // Full best-of-3 matches with scripted fighters:
 //   A) no added latency   B) 100 ms extra round trip + ±30 ms jitter   C) a dropped socket mid-match
 //   that reconnects (token)   D) a "page reload": a fresh client rebuilds from the room's input log.
+//   E) the host's accept step: no fight before "accept"; "decline" closes the friend (4403) and frees
+//   the seat; the next friend is accepted and the fight starts.
+// In every match the host sees the friend's drawing ("ask") and accepts before the fight can start.
 // Pass = both clients see the same rounds/winners, every checksum both computed matches, 0 desyncs
 // (client and room). Also prints WebSocket messages per player per second (the request budget).
 import WebSocket from "ws";
@@ -32,6 +35,43 @@ function bot(seed: number) {
   };
 }
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function until(fn: () => boolean, ms: number) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (fn()) return true;
+    await wait(25);
+  }
+  return fn();
+}
+
+/** E: decline frees the seat (the friend is closed with 4403), the next friend is accepted and the fight starts */
+async function declineScenario() {
+  const sa = new OnlineSession();
+  const host = await NetRoom.create(BASE, { name: "Host", strokes: POWERED.fire.strokes as never, physics: "rapier" }, Ws);
+  sa.attach(host);
+  codes.push(host.roomId);
+  const sb = new OnlineSession();
+  const guest = await NetRoom.join(BASE, host.roomId, { name: "Pest", strokes: DRAWINGS[0].strokes as never }, Ws);
+  sb.attach(guest);
+  let closed = 0;
+  guest.onLeave((code) => (closed = code));
+  check(await until(() => !!sa.ask, 5000), `E: host asked about "${sa.ask?.name}"`);
+  await wait(800);
+  check(!sa.start && !sb.start, "E: no fight while the host hasn't answered (both round trips already measured)");
+  sa.decline();
+  check(await until(() => closed !== 0, 5000) && closed === 4403, `E: decline → the friend's socket closed with ${closed} (4403)`);
+  check(await until(() => !!sa.lobby && !sa.lobby.seats[1], 3000) && !sa.ask, "E: seat 1 is free again on the host's lobby");
+  const sc = new OnlineSession();
+  const friend = await NetRoom.join(BASE, host.roomId, { name: "Friend", strokes: DRAWINGS[0].strokes as never }, Ws);
+  sc.attach(friend);
+  check(friend.seat === 1 && (await until(() => sa.ask?.name === "Friend", 5000)), `E: the next friend takes seat ${friend.seat} and the host is asked again`);
+  sa.accept();
+  check((await until(() => !!sa.lock && !!sc.lock, 8000)) && sa.lobby?.accepted === true, `E: accepted → the fight starts on both (delay ${sa.start?.delay}f)`);
+  for (const [s, r] of [[sa, host], [sb, guest], [sc, friend]] as const) {
+    s.dispose();
+    r.leave();
+  }
+}
 
 type Player = { room: NetRoom; s: OnlineSession; brain: ReturnType<typeof bot>; ticks: number };
 function wire(p: Player, room: NetRoom) {
@@ -55,6 +95,11 @@ async function scenario(name: string, lag: number, jitter: number, opts: { drop?
   const a = await mk(POWERED.fire.strokes);
   const b = await mk(DRAWINGS.find((d) => d.name === "quadruped")!.strokes, a.room.roomId);
   codes.push(a.room.roomId);
+  // the host is asked (with the friend's drawing) and accepts; nothing starts before that
+  const asked = await until(() => !!a.s.ask, 5000);
+  await wait(600);
+  check(asked && !!a.s.ask?.strokes?.length && /four-legged|quadruped/.test(a.s.ask.kind) && !a.s.start && !b.s.start, `${name}: host asked about ${a.s.ask?.name} (${a.s.ask?.kind}, ${a.s.ask?.strokes?.length} strokes); no fight before accept`);
+  a.s.accept();
   const players = [a, b];
   let dropped = false;
   let reloaded = false;
@@ -132,6 +177,7 @@ if (run("A")) await scenario("A no lag (real time)", 0, 0, { realtime: true });
 if (run("B")) await scenario("B lag 100+jitter 30 (real time)", 100, 30, { realtime: true });
 if (run("C")) await scenario("C drop+reconnect", 40, 10, { drop: true });
 if (run("D")) await scenario("D reload+fast-forward", 40, 10, { reload: true });
+if (run("E")) await declineScenario();
 await wait(500);
 for (const code of codes) {
   const info = (await (await fetch(`${BASE}/api/rooms/${code}`)).json()) as Record<string, unknown>;

@@ -19,9 +19,13 @@ const check = (ok, msg) => {
   console.log(`${ok ? "ok  " : "FAIL"} ${msg}`);
   if (!ok) bad++;
 };
-await p.goto("http://localhost:3100/", { waitUntil: "networkidle" });
+const BASE = process.env.BASE || "http://localhost:3100";
+await p.goto(BASE + "/", { waitUntil: "networkidle" });
 const pencil = { "#2a241c": "Pencil", "#c23b32": "Red", "#1d4f89": "Blue", "#2f7d4a": "Green", "#6d4ca8": "Purple", "#c4962c": "Gold", "#e07a2f": "Orange", "#d45d8c": "Pink" };
 async function draw(slotIx, name) {
+  // the draw-first prompt scrolls the box into view (smoothly): let it settle first
+  await p.waitForTimeout(700);
+  await p.getByTestId(`slot-${slotIx}`).scrollIntoViewIfNeeded();
   const r0 = await p.getByTestId(`slot-${slotIx}`).boundingBox();
   for (const s of SET.find((d) => d.name === name).strokes) {
     await p.getByRole("button", { name: pencil[s.color] ?? "Pencil", exact: true }).click();
@@ -32,11 +36,14 @@ async function draw(slotIx, name) {
     await p.mouse.up();
   }
 }
-const btn0 = await p.getByTestId("duel-2p").innerText();
+// "2 players" with nothing drawn asks for a drawing first (and stays on the page)
+await p.getByTestId("duel-2p").click();
+const ask0 = await p.getByTestId("draw-first").innerText().catch(() => "");
 await draw(0, P1);
+await p.getByTestId("duel-2p").click();
+const ask1 = await p.getByTestId("draw-first").innerText().catch(() => "");
 await draw(1, P2);
-const btn = await p.getByTestId("duel-2p").innerText();
-check(btn0.includes("draw first") && btn.includes("2P duel"), `home: 2P button "${btn0}" → "${btn}"`);
+check(/draw your fighter first/i.test(ask0) && /player 2/i.test(ask1) && !/mode=2p/.test(p.url()), `home: "2 players" asks first for P1's drawing ("${ask0.slice(0, 40)}…"), then P2's ("${ask1.slice(0, 40)}…")`);
 await p.screenshot({ path: `${OUT}/home_2p.png` });
 await p.getByTestId("duel-2p").click();
 await p.waitForURL(/mode=2p/);

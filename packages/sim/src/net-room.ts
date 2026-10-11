@@ -9,7 +9,7 @@
  * Wire format: every WebSocket message is a JSON array of [type, payload] pairs (see
  * @nf/shared net.ts), so one message can carry an input batch, a checksum and a ping together.
  */
-import { CLOSE, type JoinMsg, type WelcomeMsg } from "@nf/shared";
+import { BUSY_MESSAGE, CLOSE, type JoinMsg, type WelcomeMsg } from "@nf/shared";
 
 type WsLike = {
   readyState: number;
@@ -30,8 +30,14 @@ export function serverBases(base: string) {
   return { http, ws };
 }
 
+/** an Error from NetRoom that means "the server is busy or out of reach" (not "no such room") */
+export type NetError = Error & { code?: number; status?: number; busy?: boolean };
+const busyError = (detail: string, extra: { code?: number; status?: number } = {}): NetError =>
+  Object.assign(new Error(BUSY_MESSAGE), { busy: true, detail }, extra);
+export const isBusyError = (e: unknown): boolean => !!(e && typeof e === "object" && (e as NetError).busy);
+
 /** close codes after which reconnecting is pointless */
-export const FINAL_CLOSE = new Set<number>([CLOSE.left, CLOSE.replaced, CLOSE.notFound, CLOSE.full, CLOSE.expired]);
+export const FINAL_CLOSE = new Set<number>([CLOSE.left, CLOSE.replaced, CLOSE.declined, CLOSE.notFound, CLOSE.full, CLOSE.expired]);
 
 export class NetRoom {
   roomId = "";
@@ -53,10 +59,19 @@ export class NetRoom {
     try {
       res = await fetch(`${http}/api/rooms`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ physics: opts.physics }) });
     } catch {
-      throw new Error(`Couldn't reach the game server (${http}).`);
+      // offline, DNS, CORS-blocked error page, connection reset…
+      throw busyError(`Couldn't reach the game server (${http}).`);
     }
-    if (!res.ok) throw new Error(`The game server couldn't make a room (${res.status}).`);
-    const { code } = (await res.json()) as { code: string };
+    // 429 / 5xx (Cloudflare's "1027 exceeded" pages, Durable Object overload, the Worker's {error:"busy"})
+    if (res.status === 429 || res.status >= 500) throw busyError(`The game server is busy (${res.status}).`, { status: res.status });
+    if (!res.ok) throw Object.assign(new Error(`The game server couldn't make a room (${res.status}).`), { status: res.status });
+    let code = "";
+    try {
+      code = ((await res.json()) as { code?: string }).code ?? "";
+    } catch {
+      // an HTML error page with a 200: treat as busy
+    }
+    if (!code) throw busyError("The game server answered without a room code.");
     return NetRoom.join(base, code, { name: opts.name, strokes: opts.strokes }, Ws);
   }
 
@@ -106,10 +121,11 @@ export class NetRoom {
       ws.onclose = (ev) => {
         if (room.keepalive) clearInterval(room.keepalive);
         if (!welcomed) {
-          const why: Record<number, string> = { [CLOSE.notFound]: "No room with that code.", [CLOSE.full]: "That room is full or its match already started.", [CLOSE.expired]: "Your seat in that match has expired." };
-          const err = new Error(why[ev.code] ?? `Couldn't reach the game server (${serverBases(base).http}).`) as Error & { code?: number };
-          err.code = ev.code;
-          reject(err);
+          const why: Record<number, string> = { [CLOSE.declined]: "The host declined. Ask them for a new invite.", [CLOSE.notFound]: "No room with that code.", [CLOSE.full]: "That room is full or its match already started.", [CLOSE.expired]: "Your seat in that match has expired." };
+          // a known room answer (declined / not found / full / expired) is final; anything else (the
+          // upgrade refused with 429/503, 1006 abnormal close, 1011/1013 overload) means "busy"
+          if (why[ev.code]) reject(Object.assign(new Error(why[ev.code]), { code: ev.code }));
+          else reject(busyError(`Couldn't reach the game server (${serverBases(base).http}), close ${ev.code}.`, { code: ev.code }));
           return;
         }
         for (const cb of room.leaveCbs) cb(ev.code, ev.reason);

@@ -7,6 +7,7 @@ import { Sfx } from "./sfx";
 import { KEYS_1P, KEYS_P1, KEYS_P2, bannerFor, makeReader, paintMeter } from "./controls";
 import { makePads } from "./gamepad";
 import { TouchPad } from "./touchpad";
+import { RotateButton } from "./rotate";
 import { watchInputMode } from "./input-mode";
 import { PHYSICS_KEY, RENDERER_KEY, chosePixi, pickPhysics, pickRenderer, save, type PhysicsKind, type RendererKind } from "./renderer-pref";
 
@@ -534,6 +535,7 @@ export default function PlayClient() {
         <p className="banner-text" />
         <p className="banner-sub" />
       </div>
+      <RotateButton />
       <div className="overlay">
         <div className="topbar">
           <Link className="back" href="/">

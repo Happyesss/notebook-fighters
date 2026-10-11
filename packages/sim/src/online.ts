@@ -8,7 +8,7 @@
  * per message (Lockstep batching), and checksums and fight-time pings never get a message of their
  * own — they ride along with the next input batch (or go after at most 250 ms when stalled).
  */
-import { MAX_INPUT_BATCH, type DesyncMsg, type InputMsg, type LobbyMsg, type LogMsg, type PeerMsg, type PlayerInput, type StartMsg, type SumMsg } from "@nf/shared";
+import { MAX_INPUT_BATCH, type AskMsg, type DesyncMsg, type InputMsg, type LobbyMsg, type LogMsg, type PeerMsg, type PlayerInput, type StartMsg, type SumMsg } from "@nf/shared";
 import { Lockstep } from "./lockstep";
 import { createSim, type FxEvent, type NotebookSim } from "./sim";
 
@@ -47,6 +47,8 @@ export type SessionOpts = {
 export class OnlineSession {
   room: RoomLike | null = null;
   lobby: LobbyMsg | null = null;
+  /** the host's pending question: this friend sat down, accept or decline? (null once answered / the seat emptied) */
+  ask: AskMsg | null = null;
   start: StartMsg | null = null;
   lock: Lockstep | null = null;
   sim: NotebookSim | null = null;
@@ -89,7 +91,7 @@ export class OnlineSession {
     this.room = room;
     this.connected = true;
     const on = (type: string) => room.onMessage(type, (m) => this.inn.run(() => this.handle(type, m)));
-    for (const t of ["lobby", "start", "i", "log", "c", "desync", "peer", "pong", "rtt"]) on(t);
+    for (const t of ["lobby", "ask", "start", "i", "log", "c", "desync", "peer", "pong", "rtt"]) on(t);
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.outbox = [];
     this.pingTimer = setInterval(() => this.housekeeping(), 250);
@@ -172,6 +174,12 @@ export class OnlineSession {
     if (type === "lobby") {
       this.lobby = m as LobbyMsg;
       this.seat = this.lobby.you;
+      // the friend left, was declined, or was accepted: nothing left to answer
+      if (!this.lobby.seats[1] || this.lobby.accepted) this.ask = null;
+      return this.onChange();
+    }
+    if (type === "ask") {
+      this.ask = m as AskMsg;
       return this.onChange();
     }
     if (type === "peer") {
@@ -232,6 +240,20 @@ export class OnlineSession {
     );
     this.building = false;
     for (const [t, m] of this.queue.splice(0)) this.apply(t, m);
+    this.onChange();
+  }
+
+  /** host: let the friend who sat down play (the fight starts once both round trips are measured) */
+  accept() {
+    this.ask = null;
+    this.send("accept", {});
+    this.onChange();
+  }
+
+  /** host: send the friend away (their socket closes with 4403) and wait for someone else */
+  decline() {
+    this.ask = null;
+    this.send("decline", {});
     this.onChange();
   }
 

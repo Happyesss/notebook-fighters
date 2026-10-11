@@ -179,7 +179,7 @@ pnpm run deploy                                # next build → apps/web/out, th
 | `/r/:code` | 302 → `/online?join=CODE` |
 | everything else | the static site (`404.html` when nothing matches) |
 
-**Cost:** nothing on the free plan — over the daily limits requests simply fail until the next day; you're only billed if you upgrade. Rooms use the WebSocket Hibernation API (no timers, alarms for the 60 s seat hold, runtime-answered keepalives), so a room waiting for a friend costs no duration, and incoming WebSocket messages bill 20:1. With batching a 1-minute match is ≈1,800–3,600 messages ≈ 90–180 billed requests, so the 100,000 free requests a day cover roughly **550–1,100 one-minute matches a day**.
+**Cost:** nothing on the free plan — over the daily limits requests simply fail until the next day (the online page then says "Online is busy right now" and offers the computer or a 2-player game on the same device; the Worker answers a JSON `503 {"error":"busy"}` instead of an error page); you're only billed if you upgrade. Rooms use the WebSocket Hibernation API (no timers, alarms for the 60 s seat hold, runtime-answered keepalives), so a room waiting for a friend costs no duration, and incoming WebSocket messages bill 20:1. With batching a 1-minute match is ≈1,800–3,600 messages ≈ 90–180 billed requests, so the 100,000 free requests a day cover roughly **550–1,100 one-minute matches a day**.
 
 ## Architecture
 
