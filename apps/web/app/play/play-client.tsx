@@ -18,7 +18,12 @@ const HISTORY = 300;
 /** the K.O. replay: from ~1.8 s before the final blow to ~0.8 s after, at this speed */
 const REPLAY_SPEED = 0.35;
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { GuideButton } from "../guide-button";
 import { fitArena } from "./arena";
+
+// the guide carries the sim's power list: load it only when it's opened
+const HowToPlay = dynamic(() => import("../guide").then((m) => m.HowToPlay), { ssr: false });
 import { useEffect, useRef, useState } from "react";
 
 const SLIDERS: { key: keyof Tuning; label: string; min: number; max: number; step: number }[] = [
@@ -86,6 +91,17 @@ export default function PlayClient() {
   const [muted, setMuted] = useState(false);
   /** phones: the sound / engine / clip chips, the reading line and the tuners live in this menu */
   const [menuOpen, setMenuOpen] = useState(false);
+  const [guide, setGuide] = useState(false);
+  // the guide pauses a fight against the computer or a local duel (online fights can't pause)
+  useEffect(() => {
+    if (!guide) return;
+    const nf = (window as unknown as { __nf?: { paused: boolean } }).__nf;
+    if (!nf) return;
+    nf.paused = true;
+    return () => {
+      nf.paused = false;
+    };
+  }, [guide]);
   const [engine, setEngine] = useState<{ renderer: RendererKind; physics: PhysicsKind; fallback: string | null } | null>(null);
   const [clip, setClip] = useState<"idle" | "recording" | "saved" | "unsupported">("idle");
 
@@ -541,6 +557,7 @@ export default function PlayClient() {
           <Link className="back" href="/">
             ← notebook
           </Link>
+          <GuideButton className="fight-guide" label="" onOpen={() => setGuide(true)} />
           <button type="button" className="menu-toggle" data-testid="menu" aria-expanded={menuOpen} aria-label="Menu: sound, engine, clip, tuners" onClick={() => setMenuOpen((o) => !o)}>
             {menuOpen ? "✕" : "☰"}
           </button>
@@ -677,6 +694,7 @@ export default function PlayClient() {
           </div>
         </aside>
       )}
+      {guide && <HowToPlay start={6} onClose={() => setGuide(false)} />}
       <aside className="tune" data-open={tuneOpen ? "true" : "false"}>
         <button type="button" className="tune-toggle" onClick={() => setTuneOpen((open) => !open)}>
           {tuneOpen ? "Hide tuners" : "Tuners"}

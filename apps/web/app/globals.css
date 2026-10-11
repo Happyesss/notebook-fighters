@@ -560,7 +560,8 @@ kbd {
 .meter-fill { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0); background: repeating-linear-gradient(-45deg, #c4962c, #c4962c 3px, #e8d29a 3px, #e8d29a 6px); }
 .meter[data-power="fire"] .meter-fill { background: repeating-linear-gradient(-45deg, #e07a2f, #e07a2f 3px, #f3c49b 3px, #f3c49b 6px); }
 .meter[data-power="water"] .meter-fill, .meter[data-power="ice"] .meter-fill { background: repeating-linear-gradient(-45deg, #3f7fbf, #3f7fbf 3px, #b5cfe8 3px, #b5cfe8 6px); }
-.meter[data-power="wings"] .meter-fill, .meter[data-power="shield"] .meter-fill, .meter[data-power="spikes"] .meter-fill { background: repeating-linear-gradient(-45deg, #6b6357, #6b6357 3px, #cfc7b8 3px, #cfc7b8 6px); }
+.meter[data-power="pumpkin"] .meter-fill { background: repeating-linear-gradient(-45deg, #e07a2f, #e07a2f 3px, #2a241c 3px, #2a241c 6px); }
+.meter[data-power="wings"] .meter-fill, .meter[data-power="shield"] .meter-fill, .meter[data-power="spikes"] .meter-fill, .meter[data-power="bones"] .meter-fill, .meter[data-power="quake"] .meter-fill, .meter[data-power="leap"] .meter-fill { background: repeating-linear-gradient(-45deg, #6b6357, #6b6357 3px, #cfc7b8 3px, #cfc7b8 6px); }
 .meter-label { position: relative; padding-left: 0.3rem; color: #2a241c; white-space: nowrap; }
 .meter[data-state="ready"] { box-shadow: 0 0 0 2px rgba(196, 150, 44, 0.55); }
 .meter[data-state="ready"] .meter-label { font-weight: bold; }
@@ -1226,4 +1227,70 @@ html[data-input="touch"] .keys-legend { display: none !important; }
   .home-links { flex-direction: row; gap: 0.9rem; }
   .pitch { font-size: 1.05rem; margin: 0.15rem 0 0.3rem; max-width: none; }
   .pencils { margin: 0 0 0.45rem; }
+}
+
+/* ---------------------------------------------------------------- How to play */
+.kicker-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; position: relative; z-index: 2; }
+.kicker-row .kicker { margin: 0; }
+.guide-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem; border: 1.5px solid #1d4f89; border-radius: 999px; background: #fffaf1; color: #1d4f89;
+  font-family: var(--font-hand), cursive; font-size: 1rem; line-height: 1; padding: 0.15rem 0.6rem 0.15rem 0.2rem; min-height: 2rem; cursor: pointer; touch-action: manipulation;
+}
+.guide-q { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: #1d4f89; color: #fffaf1; font-family: Georgia, serif; font-weight: bold; font-size: 0.95rem; }
+.guide-btn-label:empty { display: none; }
+.guide-btn:has(.guide-btn-label:empty) { padding: 0.2rem; }
+.fight-guide { pointer-events: auto; flex: none; min-height: 2.1rem; margin-right: auto; margin-left: -0.3rem; }
+@media (max-width: 700px) {
+  .fight-guide { position: absolute; right: 5.4rem; top: 0.3rem; z-index: 4; margin: 0; }
+  .fx-buttons { right: 8.4rem; }
+}
+.fight-guide .guide-q { width: 1.65rem; height: 1.65rem; }
+@media (pointer: coarse) {
+  .guide-btn { min-height: 44px; min-width: 44px; justify-content: center; }
+}
+html[data-fit="phone-portrait"] .fight-guide { position: absolute; right: 3.4rem; top: 0.3rem; z-index: 5; min-height: 2.1rem; min-width: 2.1rem; margin: 0; }
+html[data-fit="phone-landscape"] .fight-guide { position: static; min-height: 2.1rem; min-width: 2.1rem; margin: 0; }
+
+.dlg.guide { width: min(58rem, 100%); display: flex; flex-direction: column; padding-bottom: 0; }
+/* the ✕ stays sticky at the top right (in a flex column a float doesn't apply) */
+.dlg.guide > .dlg-x { align-self: flex-end; flex: none; margin-bottom: -2.2rem; }
+.guide-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; margin-right: 3rem; }
+.guide-head .dlg-title { margin: 0; }
+.guide-mode { display: inline-flex; gap: 0.25rem; }
+.guide-mode button { border: 1.5px solid #2a241c; background: #fffaf1; border-radius: 8px; font-size: 0.85rem; min-height: 2.2rem; padding: 0 0.6rem; cursor: pointer; color: #2a241c; }
+.guide-mode button[aria-pressed="true"] { background: #2a241c; color: #fffaf1; }
+.guide-page { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.guide-page h3 { margin: 0.5rem 0 0.4rem; font-family: var(--font-hand), cursive; font-weight: 400; font-size: 1.55rem; line-height: 1.1; color: #c23b32; }
+.guide-shot { margin: 0; display: grid; place-items: center; background: #fffaf1; border: 1.5px dashed rgba(42, 36, 28, 0.35); border-radius: 10px; padding: 0.3rem; }
+.guide-shot img { display: block; max-width: 100%; max-height: min(48vh, 30rem); width: auto; height: auto; border-radius: 6px; pointer-events: none; }
+.guide-text ul { margin: 0.6rem 0 0.2rem; padding-left: 1.2rem; display: grid; gap: 0.3rem; font-size: 0.98rem; line-height: 1.4; }
+.guide-text kbd, .guide-powers kbd { font-size: 0.85em; }
+.guide-powers { display: grid; gap: 0.1rem; margin-top: 0.2rem; font-size: 0.92rem; }
+.guide-nav {
+  position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0.6rem -1.1rem 0; padding: 0.55rem 1.1rem calc(0.6rem + env(safe-area-inset-bottom));
+  background: #f6f0e2; border-top: 1px solid rgba(42, 36, 28, 0.15);
+}
+.guide-nav .play-link { margin: 0; font-size: 1.25rem; padding: 0.4rem 1rem; min-height: 44px; }
+.guide-nav .text-btn { min-height: 44px; padding: 0 0.8rem; }
+.guide-nav .text-btn:disabled { opacity: 0.35; }
+.guide-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.1rem; }
+.guide-dots button { width: 22px; height: 28px; border: 0; background: none; padding: 0; cursor: pointer; position: relative; }
+.guide-dots button::after { content: ""; position: absolute; left: 6px; top: 9px; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #2a241c; background: #fffaf1; }
+.guide-dots button[aria-current="step"]::after { background: #c23b32; border-color: #c23b32; }
+@media (max-width: 640px) {
+  .dlg.guide { padding-left: 0.7rem; padding-right: 0.7rem; }
+  .guide-nav { margin: 0.5rem -0.7rem 0; padding-left: 0.7rem; padding-right: 0.7rem; }
+  .guide-page h3 { font-size: 1.3rem; }
+  .guide-text ul { font-size: 0.92rem; }
+  .guide-shot img { max-height: 44vh; }
+  .guide-dots button { width: 16px; }
+  .guide-dots button::after { left: 3px; }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  /* phone landscape: the picture beside the text */
+  .guide-page { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0 0.8rem; }
+  .guide-page h3 { grid-column: 1 / -1; margin-top: 0.2rem; }
+  .guide-shot img { max-height: 58vh; }
+  .guide-text ul { margin-top: 0; font-size: 0.88rem; }
+  .guide-nav { padding-top: 0.3rem; padding-bottom: 0.3rem; }
 }

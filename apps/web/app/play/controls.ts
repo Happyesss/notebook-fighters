@@ -1,6 +1,6 @@
 /** keyboard readers, HUD meters and the round banner, shared by /play and /online */
 import type { PlayerInput } from "@nf/shared";
-import type { FighterSnap, PowerKind, SimState } from "@nf/sim";
+import { POWER_INFO, type FighterSnap, type PowerKind, type SimState } from "@nf/sim";
 
 /** keys per player. 1P: either hand; 2P: P1 on the left of the keyboard, P2 on the right */
 export type KeyMap = Record<"left" | "right" | "punch" | "kick" | "jump" | "block" | "crouch" | "special", string[]>;
@@ -28,7 +28,7 @@ export function makeReader(map: KeyMap) {
   };
 }
 
-export const POWER_NAMES: Record<PowerKind, string> = { fire: "Fireball", water: "Water wave", lightning: "Lightning dash", ice: "Ice shard", wings: "Dive", shield: "Shield bash", spikes: "Spike burst" };
+export const POWER_NAMES: Record<PowerKind, string> = Object.fromEntries((Object.keys(POWER_INFO) as PowerKind[]).map((k) => [k, POWER_INFO[k].special])) as Record<PowerKind, string>;
 
 /** the special's cooldown meter under a health bar */
 export function paintMeter(el: HTMLElement | null, f: FighterSnap | undefined) {

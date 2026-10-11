@@ -7,8 +7,9 @@
 import type { InkStroke, Pt } from "@nf/shared";
 import type { Difficulty } from "./sim";
 import type { Pose } from "./anim";
+import type { Signature } from "./powers";
 
-export type RosterId = "bodybuilder" | "ninja" | "pehelwan" | "boxer" | "kid" | "karate" | "swordsman" | "dog";
+export type RosterId = "bodybuilder" | "ninja" | "pehelwan" | "boxer" | "kid" | "karate" | "swordsman" | "dog" | "halloween" | "skeleton";
 export type RosterEntry = {
   id: RosterId;
   name: string;
@@ -19,6 +20,8 @@ export type RosterEntry = {
   size?: number;
   /** pose offsets for how this body stands (see Animator.stance) */
   stance?: Partial<Pose>;
+  /** its own special (instead of drawing itself a power to match yours) */
+  signature?: Signature;
 };
 
 function pencil(seed: number) {
@@ -434,6 +437,79 @@ function dog(): InkStroke[] {
 }
 
 /** the Bodybuilder stands like a hulk: arms hanging wide, elbows loose, feet planted wide */
+/** a pumpkin-headed scarecrow: a carved jack-o'-lantern on a ragged black cloak, scribbled like the Hulk */
+function halloween(): InkStroke[] {
+  const o = "#e07a2f";
+  const k = "#2a241c";
+  const g = "#2f7d4a";
+  const p = pencil(91);
+  const read: InkStroke[] = [
+    // the pumpkin is the head (a wide loop), then a plain stick body under the cloak
+    { color: o, points: p.ellipse(0.5, 0.155, 0.078, 0.066) },
+    { color: k, points: p.path([[0.5, 0.222], [0.5, 0.56]]) },
+    { color: k, points: p.path([[0.5, 0.3], [0.405, 0.39], [0.37, 0.47]]) },
+    { color: k, points: p.path([[0.5, 0.3], [0.6, 0.385], [0.64, 0.46]]) },
+    { color: k, points: p.path([[0.5, 0.56], [0.45, 0.745], [0.44, 0.93]]) },
+    { color: k, points: p.path([[0.5, 0.56], [0.56, 0.745], [0.575, 0.93]]) },
+  ];
+  const q = pencil(92);
+  const D: InkStroke[] = [
+    // pumpkin ribs, stem and curly vine
+    deco(o, q.arc(0.5, 0.155, 0.035, 0.064, -1.45, 1.45, 10), "head", 0.7),
+    deco(o, q.arc(0.5, 0.155, 0.035, 0.064, 1.69, 4.59, 10), "head", 0.7),
+    deco(g, q.path([[0.495, 0.092], [0.5, 0.07], [0.515, 0.062]]), "head", 1.1),
+    deco(g, q.arc(0.53, 0.075, 0.016, 0.012, 3.4, 8.6, 10), "head", 0.6),
+    // carved face: triangle eyes, a jagged grin
+    deco(k, q.path([[0.47, 0.145], [0.485, 0.122], [0.497, 0.145], [0.47, 0.145]]), "head", 0.9),
+    deco(k, q.path([[0.515, 0.145], [0.53, 0.122], [0.542, 0.145], [0.515, 0.145]]), "head", 0.9),
+    deco(k, q.path([[0.462, 0.172], [0.477, 0.188], [0.49, 0.176], [0.503, 0.192], [0.516, 0.177], [0.53, 0.19], [0.548, 0.17]]), "head", 0.9),
+    // a ragged cloak from the shoulders to the knees, torn at the hem
+    deco(k, q.path([[0.47, 0.235], [0.43, 0.32], [0.415, 0.45], [0.41, 0.6], [0.42, 0.66]]), "torso", 1.1),
+    deco(k, q.path([[0.53, 0.235], [0.57, 0.32], [0.585, 0.45], [0.59, 0.6], [0.58, 0.66]]), "torso", 1.1),
+    deco(k, q.path([[0.42, 0.66], [0.44, 0.62], [0.46, 0.67], [0.48, 0.62], [0.5, 0.68], [0.52, 0.62], [0.54, 0.67], [0.56, 0.62], [0.58, 0.66]]), "torso", 0.9),
+    deco(k, scribble(93, 0.435, 0.565, 0.32, 0.58, 6), "torso", 0.35),
+    // a rope belt, straw poking out of the sleeves
+    deco("#8a5a32", q.path([[0.43, 0.47], [0.5, 0.485], [0.57, 0.47]]), "torso", 0.8),
+    deco("#c4962c", q.path([[0.37, 0.47], [0.355, 0.495]]), "auto", 0.6),
+    deco("#c4962c", q.path([[0.37, 0.47], [0.375, 0.5]]), "auto", 0.6),
+    deco("#c4962c", q.path([[0.64, 0.46], [0.655, 0.49]]), "auto", 0.6),
+    deco("#c4962c", q.path([[0.64, 0.46], [0.635, 0.492]]), "auto", 0.6),
+  ];
+  return [...read, ...D];
+}
+
+/** a rattling skeleton: skull, spine and ribs, knobbly bones */
+function skeleton(): InkStroke[] {
+  const k = "#3b3632";
+  const p = pencil(101);
+  const read: InkStroke[] = [
+    { color: k, points: p.ellipse(0.5, 0.15, 0.06, 0.07) },
+    { color: k, points: p.path([[0.5, 0.222], [0.5, 0.56]]) },
+    { color: k, points: p.path([[0.5, 0.3], [0.41, 0.39], [0.38, 0.48]]) },
+    { color: k, points: p.path([[0.5, 0.3], [0.6, 0.385], [0.635, 0.47]]) },
+    { color: k, points: p.path([[0.5, 0.56], [0.455, 0.745], [0.445, 0.93]]) },
+    { color: k, points: p.path([[0.5, 0.56], [0.555, 0.745], [0.57, 0.93]]) },
+  ];
+  const q = pencil(102);
+  const D: InkStroke[] = [
+    // skull: hollow eyes, a nose hole, a row of teeth
+    deco(k, q.ellipse(0.478, 0.145, 0.014, 0.016), "head", 1),
+    deco(k, q.ellipse(0.522, 0.145, 0.014, 0.016), "head", 1),
+    deco(k, q.path([[0.495, 0.17], [0.5, 0.162], [0.505, 0.17]]), "head", 0.7),
+    deco(k, q.path([[0.474, 0.19], [0.526, 0.19]]), "head", 0.7),
+    ...[0.482, 0.494, 0.506, 0.518].map((x) => deco(k, q.path([[x, 0.183], [x, 0.197]]), "head", 0.5)),
+    // ribcage: curved ribs on both sides of the spine, and a pelvis bowl
+    ...[0.27, 0.31, 0.35, 0.39].map((y, i) => deco(k, q.arc(0.5, y, 0.055 - i * 0.004, 0.022, 0.2, Math.PI - 0.2, 10), "torso", 0.8)),
+    deco(k, q.arc(0.5, 0.545, 0.05, 0.03, 0.1, Math.PI - 0.1, 10), "torso", 0.9),
+    // knobbly joints: little double bumps at elbows, knees, hands and feet
+    ...([[0.41, 0.39], [0.6, 0.385], [0.455, 0.745], [0.555, 0.745]] as [number, number][]).map(([x, y]) => deco(k, q.ellipse(x, y, 0.011, 0.011), "auto", 0.7)),
+    ...([[0.38, 0.48], [0.635, 0.47]] as [number, number][]).map(([x, y]) => deco(k, q.path([[x - 0.012, y + 0.008], [x, y + 0.02], [x + 0.012, y + 0.008]]), "auto", 0.6)),
+    deco(k, q.path([[0.43, 0.93], [0.465, 0.93]]), "auto", 0.7),
+    deco(k, q.path([[0.56, 0.93], [0.6, 0.93]]), "auto", 0.7),
+  ];
+  return [...read, ...D];
+}
+
 const HULK_STANCE: Partial<Pose> = { armF: -0.05, elbowF: -1.75, armB: -1.2, elbowB: -1.9, thighF: 0.14, thighB: -0.14, lean: 0.06 };
 
 export const ROSTER: RosterEntry[] = [
@@ -443,8 +519,10 @@ export const ROSTER: RosterEntry[] = [
   { id: "karate", name: "Karate guy", blurb: "strong straight punch and kick", tier: 2, strokes: karate() },
   { id: "ninja", name: "Ninja", blurb: "low stance, short blade", tier: 2, strokes: ninja() },
   { id: "swordsman", name: "Swordsman", blurb: "long reach with the sword", tier: 2, strokes: swordsman() },
-  { id: "pehelwan", name: "Pehelwan", blurb: "sumo-wrestler bulk, heavy legs", tier: 3, strokes: pehelwan() },
-  { id: "bodybuilder", name: "Bodybuilder", blurb: "hulking, huge arms", tier: 3, strokes: bodybuilder(), size: 1.2, stance: HULK_STANCE },
+  { id: "pehelwan", name: "Pehelwan", blurb: "sumo-wrestler bulk, a stomp that shakes the ground", tier: 3, strokes: pehelwan(), signature: "quake" },
+  { id: "halloween", name: "Halloween", blurb: "pumpkin head, throws pumpkins", tier: 3, strokes: halloween(), signature: "pumpkin" },
+  { id: "skeleton", name: "Skeleton", blurb: "falls to bits, snaps back next to you", tier: 3, strokes: skeleton(), signature: "bones" },
+  { id: "bodybuilder", name: "Bodybuilder", blurb: "hulking, huge arms, a leap across the arena", tier: 3, strokes: bodybuilder(), size: 1.2, stance: HULK_STANCE, signature: "leap" },
 ];
 
 export const rosterById = (id: string | null | undefined) => ROSTER.find((r) => r.id === id) ?? null;

@@ -5,7 +5,7 @@
  */
 import type { InkStroke } from "@nf/shared";
 import { MOVE_TITLES, type MoveName } from "./anim";
-import { POWER_INFO, type PowerKind } from "./powers";
+import { POWER_INFO, isSignature, type PowerKind } from "./powers";
 import { ROSTER, type RosterId } from "./roster";
 import { AI_PROFILES, NotebookSim, moveDamage, moveStriker, type Difficulty } from "./sim";
 import type { StrikeKey } from "./stats";
@@ -43,7 +43,7 @@ export type RivalProfile = {
   /** the level's damage scale for the computer's hits */
   levelDmg: number;
   moves: RivalMove[];
-  special: { kind: PowerKind; name: string; move: string; passive: string; cooldown: number; strength: number } | null;
+  special: { kind: PowerKind; name: string; move: string; passive: string; cooldown: number; strength: number; signature: boolean } | null;
   /** plain-words reasons from the stats reader ("dark right arm (3 passes): punch +30%") */
   abilities: string[];
 };
@@ -71,7 +71,7 @@ export function rivalProfile(id: RosterId | "auto", difficulty: Difficulty = "no
     }
     const pw = f.special;
     const special = pw
-      ? { kind: pw, name: POWER_INFO[pw].name, move: POWER_INFO[pw].special, passive: POWER_INFO[pw].passive, cooldown: POWER_INFO[pw].cooldown, strength: st.powers.find((p) => p.kind === pw)?.strength ?? 1 }
+      ? { kind: pw, name: POWER_INFO[pw].name, move: POWER_INFO[pw].special, passive: POWER_INFO[pw].passive, cooldown: Math.round(f.coolMax * 10) / 10, strength: st.powers.find((p) => p.kind === pw)?.strength ?? 1, signature: isSignature(pw) }
       : null;
     return {
       id: e.id,

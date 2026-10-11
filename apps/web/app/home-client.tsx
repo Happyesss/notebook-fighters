@@ -9,6 +9,7 @@ import { SketchModal } from "./sketch-modal";
 import { MAX_FIGHTERS, emptyBook, loadBook, newId, saveBook, strokesOf, type FighterBook } from "./fighters";
 import { LEVELS, RivalCard, RivalPicker, RivalThumb } from "./rivals";
 import { OfflineHint } from "./offline";
+import { GuideButton, HowToPlay, useFirstVisitGuide } from "./guide";
 
 const RIVAL_KEY = "nf:rival";
 const LEVEL_KEY = "nf:level";
@@ -28,6 +29,8 @@ export function HomeClient() {
   const [pen, setPen] = useState(PENCILS[0].color);
   const [rival, setRival] = useState<RosterId | "auto">("auto");
   const [level, setLevel] = useState<Difficulty>("normal");
+  const [guide, setGuide] = useState(false);
+  useFirstVisitGuide(() => setGuide(true));
   /** which fighter (id) is open on the big drawing pad */
   const [big, setBig] = useState<string | null>(null);
   /** "draw your fighter first": which player still needs a drawing, and what to do once there is one */
@@ -140,7 +143,10 @@ export function HomeClient() {
     <main className="notebook" data-loaded={loaded ? "true" : "false"}>
       <header className="home-head">
         <div className="home-title">
-          <p className="kicker">The notebook</p>
+          <div className="kicker-row">
+            <p className="kicker">The notebook</p>
+            <GuideButton onOpen={() => setGuide(true)} />
+          </div>
           <h1>Draw your fighter</h1>
         </div>
         <nav className="home-nav" aria-label="Play">
@@ -285,6 +291,7 @@ export function HomeClient() {
           ))}
         </div>
       </section>
+      {guide && <HowToPlay onClose={() => setGuide(false)} />}
       {/* p2 is only read by the 2-player duel; keep it referenced so the selection is visible to tests */}
       <span hidden data-testid="sel" data-p1={book.fighters.findIndex((f) => f.id === book.p1)} data-p2={book.fighters.findIndex((f) => f.id === book.p2)} data-n={book.fighters.length} data-p2ink={hasInk(p2) ? "1" : "0"} />
     </main>

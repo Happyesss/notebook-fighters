@@ -67,7 +67,18 @@ Doodle next to your fighter (shape **and** pencil colour count) and press **E / 
 <img src="docs/media/04-powers.jpg" width="100%" alt="Fireball vs water, lightning dash, wings, ice freeze">
 
 ### 💪 Pre-drawn rivals — including a pencil Hulk
-Eight hand-drawn computer opponents at real fighter height: **skinny kid, dog, boxer, karate guy, ninja, swordsman, pehelwan and the bodybuilder** — a green, cross-hatched pencil Hulk ≈20 % taller than you, whose heavily-drawn chest and arms really do hit harder. Easy / Normal / Hard pick the tier, and the CPU is balanced with a scripted "casual human" bot (every test drawing wins **41–63 %** on Normal).
+Ten hand-drawn computer opponents at real fighter height: **skinny kid, dog, boxer, karate guy, ninja, swordsman, pehelwan, halloween, skeleton and the bodybuilder** — a green, cross-hatched pencil Hulk ≈20 % taller than you, whose heavily-drawn chest and arms really do hit harder. Easy / Normal / Hard pick the tier, and the CPU is balanced with a scripted "casual human" bot (every test drawing wins **41–63 %** on Normal).
+
+The four heavyweights bring **their own special** instead of drawing one to match yours:
+
+| Rival | Special | What it does |
+|---|---|---|
+| 🎃 **Halloween** (pumpkin head, ragged cloak) | **Throw pumpkin** | a pumpkin lobbed in an arc: it splats for damage and a short stagger |
+| 💀 **Skeleton** (skull, ribs, knobbly bones) | **Bone scatter** | falls into a pile of bones (the next hit passes through), then snaps back together a step closer with a bony strike |
+| **Pehelwan** | **Ground shake** | a stomp sends a shockwave along the ground: it staggers you if you're standing on it, jump over it; the screen shakes |
+| **Bodybuilder** | **Mega leap** | a huge jump across the arena that lands in a smash on anyone near the landing |
+
+The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per rival (all body types, Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Bodybuilder 47 / 12 / 17 %: the Hulk is still the hardest.
 
 <img src="docs/media/03-hulk-fight.jpg" width="49%" alt="The Hulk hits back"> <img src="docs/media/10-rivals.jpg" width="49%" alt="Pick a rival">
 
@@ -89,6 +100,9 @@ Knockouts hand the rig to a **Rapier2D (deterministic)** ragdoll — the dog fol
 
 ### 🔊 Real, layered sound effects
 52 **Kenney CC0** sounds, layered per hit: a swish on the swing-start frame, one of 5 punch/kick impacts on the exact contact frame (no repeats, ±4 % pitch), deeper thumps for the Hulk, block clacks, a KO stack (hit + boom + bell + body thud), and a sound for every power, the countdown and the FIGHT! bell. Falls back to synthesized audio if a file fails.
+
+### ❓ How to play, built in
+A **? How to play** button on the notebook and in every fight (it pauses a fight against the computer or a local duel), and it opens by itself on your first visit. Eight short pages with real screenshots of the game and a label on every button: drawing, what your drawing does (the powers list comes straight from the sim), the computer, 2 players, rooms, play nearby, the fight controls and the HUD. Phones and tablets get the **touch** version (joystick and buttons), computers the **keyboard** version (with gamepad notes); either can be picked at the top. Next / Back, swipe, ← → and Esc; the pictures are small WebP files that the service worker keeps for offline play.
 
 ### 📱 Phone, tablet, gamepad — controls per device
 Laptops show **only the keyboard legend**; phones and tablets show **only the touch pads** (thumb joystick + compact buttons, multi-touch, no scroll/zoom); a touchscreen laptop switches to whatever you actually use. Standard **gamepads** work everywhere. Rendered at full device-pixel resolution, so lines stay crisp.
@@ -232,10 +246,11 @@ The sim is pure TypeScript and fully deterministic (fixed step, seeded randomnes
 
 ```bash
 pnpm typecheck      # tsc --noEmit in every workspace package
-pnpm test           # 16 headless sim suites: rig, shapes, recognize, duel, ko, powers, specials,
+pnpm test           # 17 headless sim suites: rig, shapes, recognize, duel, ko, powers, specials, signatures,
                     #   stats, edge, reach, versus, scribble, rivalcheck, rapier, roster, nearby
 pnpm --filter @nf/sim test:duel     # …or any one suite
 pnpm --filter @nf/sim balance       # casual-human bot vs the CPU on every level (win-rate table)
+pnpm --filter @nf/sim rivals        # the bot vs every rival on every level; the Hulk must stay the hardest
 pnpm test:online    # headless 2-client lockstep against the Worker: lag, drop + reconnect, page reload
                     #   (needs pnpm worker:dev; BASE=https://… to test a deploy)
 ```

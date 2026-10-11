@@ -375,7 +375,8 @@ export class NotebookView {
         for (let g = 1; g <= 3; g++)
           drawFighter(ctx, f.rig, joints, { scale: S, x: base.x - f.facing * g * S * 0.12, y: base.y, facing: f.facing, time: now + g, alpha: 0.22 / g, tint: f.element === "lightning" ? "#c4962c" : f.color, deform });
       }
-      drawFighter(ctx, f.rig, joints, { scale: S, x: base.x, y: base.y, facing: f.facing, time: now + i * 0.37, shiver: f.shiver, deform, tint: f.frozen && !f.ko ? "#3f7fbf" : null });
+      if ((f.scatter ?? 0) > 0 && !f.ko) this.bonePile(base.x, base.y, S, f.facing, f.scatter ?? 0, "#3b3632");
+      else drawFighter(ctx, f.rig, joints, { scale: S, x: base.x, y: base.y, facing: f.facing, time: now + i * 0.37, shiver: f.shiver, deform, tint: f.frozen && !f.ko ? "#3f7fbf" : null });
       if (this.labels && !f.ko) {
         const hc = headCenterOf(f.rig, joints);
         tags[i] = toScreen({ x: x + f.facing * hc.x, y: y + hc.y + 0.3 });
@@ -571,6 +572,62 @@ export class NotebookView {
           ctx.quadraticCurveTo(at.x + dir * (r * 0.3 - off), at.y + off * 0.3, at.x + dir * (r * 0.1 - off), at.y - r * 0.4 + off);
           ctx.stroke();
         }
+      } else if (p.kind === "pumpkin") {
+        // a little jack-o'-lantern tumbling through the air
+        const spin = now * 9 * dir;
+        ctx.save();
+        ctx.translate(at.x, at.y);
+        ctx.rotate(spin);
+        ctx.lineWidth = Math.max(2, S * 0.01);
+        ctx.strokeStyle = "#e07a2f";
+        ctx.fillStyle = "rgba(224,122,47,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 1.25, r, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 0.5, r, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#2f7d4a";
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.lineTo(r * 0.2, -r * 1.45);
+        ctx.stroke();
+        ctx.strokeStyle = "#2a241c";
+        ctx.lineWidth = Math.max(1.5, S * 0.006);
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.6, -r * 0.1);
+        ctx.lineTo(-r * 0.4, -r * 0.4);
+        ctx.lineTo(-r * 0.2, -r * 0.1);
+        ctx.moveTo(r * 0.2, -r * 0.1);
+        ctx.lineTo(r * 0.4, -r * 0.4);
+        ctx.lineTo(r * 0.6, -r * 0.1);
+        ctx.moveTo(-r * 0.6, r * 0.3);
+        ctx.lineTo(-r * 0.3, r * 0.5);
+        ctx.lineTo(0, r * 0.3);
+        ctx.lineTo(r * 0.3, r * 0.5);
+        ctx.lineTo(r * 0.6, r * 0.3);
+        ctx.stroke();
+        ctx.restore();
+      } else if (p.kind === "quake") {
+        // a shockwave running along the ground: jagged cracks and dust puffs
+        const g0 = toScreen({ x: p.x, y: 0 });
+        ctx.strokeStyle = "#5b4a3a";
+        ctx.lineWidth = Math.max(2, S * 0.011);
+        ctx.beginPath();
+        for (let k = 0; k <= 6; k++) {
+          const px = g0.x - dir * r * 2 + dir * (k / 6) * r * 3;
+          const py = g0.y - (k % 2 ? r * (1.1 + 0.4 * Math.sin(now * 40 + k)) : r * 0.15);
+          if (k) ctx.lineTo(px, py);
+          else ctx.moveTo(px, py);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(91,74,58,0.45)";
+        for (let k = 0; k < 3; k++) {
+          ctx.beginPath();
+          ctx.arc(g0.x - dir * r * (0.6 + k * 0.9), g0.y - r * 0.5, r * (0.35 + 0.1 * k + 0.08 * Math.sin(now * 25 + k)), 0, Math.PI * 2);
+          ctx.stroke();
+        }
       } else if (p.kind === "ice") {
         ctx.strokeStyle = "#3f7fbf";
         ctx.lineWidth = Math.max(2, S * 0.01);
@@ -589,6 +646,45 @@ export class NotebookView {
         ctx.stroke();
       }
     }
+    ctx.restore();
+  }
+
+  /** the skeleton fallen to bits: a heap of bones and the skull on top, rattling, gathering as it reforms */
+  private bonePile(x: number, y: number, S: number, facing: number, k: number, color: string) {
+    const ctx = this.ctx;
+    // k runs 1 → 0: spread out at first, pulled together just before it stands up again
+    const spread = 0.35 + 0.65 * Math.min(1, k * 1.6);
+    const shake = Math.sin(k * 90) * S * 0.006;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineCap = "round";
+    ctx.lineWidth = Math.max(2, S * 0.012);
+    const bones = [[-0.22, 0.4, 0.12], [-0.1, -0.3, 0.14], [0.05, 0.25, 0.11], [0.17, -0.6, 0.13], [0.27, 0.9, 0.1], [-0.3, -1, 0.1], [0.0, 1.3, 0.12]];
+    for (const [bx, ang, len] of bones) {
+      const cx = x + bx * S * spread * facing + shake;
+      const cy = y - S * 0.025;
+      const dx = Math.cos(ang) * len * S * 0.5;
+      const dy = Math.sin(ang) * len * S * 0.18;
+      ctx.beginPath();
+      ctx.moveTo(cx - dx, cy - dy);
+      ctx.lineTo(cx + dx, cy + dy);
+      ctx.stroke();
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath();
+        ctx.arc(cx + sgn * dx, cy + sgn * dy, S * 0.012, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    // the skull on the heap
+    const sx = x + S * 0.05 * facing * spread - shake;
+    const sy = y - S * 0.085;
+    ctx.beginPath();
+    ctx.arc(sx, sy, S * 0.055, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(sx - S * 0.02, sy - S * 0.008, S * 0.012, 0, Math.PI * 2);
+    ctx.arc(sx + S * 0.02, sy - S * 0.008, S * 0.012, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
   }
 

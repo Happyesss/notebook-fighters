@@ -15,7 +15,10 @@ node sketch.mjs        # equal drawing boxes, the expand pad (colours, eraser, u
 node online.mjs        # two browsers, one room, lockstep in sync (also over lag); host Accept / Decline; iPhone joiner draws first + Rotate
 node home.mjs          # notebook: 3 buttons top right, "+" boxes saved across reloads, draw-first, rival picker, character cards, Rotate (needs the Worker)
 node nearby.mjs        # play nearby: offline pages from the service worker (needs the Worker); two browsers pair by paste and by fake-camera QR with the server shut down, full matches, 0 desyncs, link drop → Connection lost
-- `walls.mjs`: holding A takes the body to the red margin line (and P2 to the right wall) on desktop (Canvas2D + PixiJS), phones and a tablet.
+node walls.mjs         # holding A takes the body to the red margin line, P2 to the right wall: desktop (Canvas2D + PixiJS), phones, tablet
+node rivals.mjs        # Halloween and Skeleton before the Bodybuilder; cards and picker show the four rivals' own specials; each special on screen
+node guide.mjs         # How to play: keyboard guide on desktop, touch guide on iPhone / iPad / 360 px; first visit opens it once; pages, swipe, keys, Esc; pauses a fight; offline pictures
+node guide-shots.mjs   # (re)makes the guide's labelled screenshots into apps/web/public/guide/ (needs python3 + Pillow)
 node busy.mjs          # online over the free plan's limits (503 / 429 1027 / no network / WS refused) → "Online is busy right now" + offline options
 node human.mjs         # a "casual human" bot plays real rounds
 ```

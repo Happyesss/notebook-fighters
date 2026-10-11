@@ -35,6 +35,11 @@ export const SFX_GROUPS = {
   wings: ["wings_1", "wings_2"],
   shield: ["shield_1", "shield_2"],
   spikes: ["spikes_1", "spikes_2"],
+  // the rivals' own specials reuse sounds already in the packs (no new files)
+  pumpkin: ["water_1", "swish_heavy_2"],
+  bones: ["block_2", "block_3"],
+  quake: ["land_3", "ko_boom"],
+  leap: ["jump_2", "wings_1"],
 } as const;
 export type SfxGroup = keyof typeof SFX_GROUPS;
 export const SFX_FILES: string[] = [...new Set(Object.values(SFX_GROUPS).flat())];
@@ -390,6 +395,25 @@ export class Sfx {
         const c = t + i * 0.035;
         this.osc("square", 1800 - i * 200, 900, c, 0.03, this.env(c, 0.1, 0.001, 0.03));
       }
+    } else if (kind === "pumpkin") {
+      // a whoosh up and over
+      const bp = this.filter("bandpass", 500, 1);
+      bp.frequency.setValueAtTime(300, t);
+      bp.frequency.exponentialRampToValueAtTime(900, t + 0.3);
+      bp.connect(this.env(t, 0.3, 0.05, 0.25));
+      this.noiseSrc(t, 0.35, 0.6).connect(bp);
+    } else if (kind === "bones") {
+      // a clatter of dry bones
+      for (let i = 0; i < 7; i++) {
+        const c = t + i * 0.045 + (i % 2) * 0.01;
+        this.osc("square", 900 + (i % 3) * 350, 600, c, 0.025, this.env(c, 0.09, 0.001, 0.025));
+      }
+    } else if (kind === "quake" || kind === "leap") {
+      // a deep thump with a rumble
+      this.osc("sine", 110, 40, t, 0.5, this.env(t, 0.45, 0.005, 0.5));
+      const lp = this.filter("lowpass", 250, 0.8);
+      lp.connect(this.env(t, 0.4, 0.01, 0.6));
+      this.noiseSrc(t, 0.6, 0.8).connect(lp);
     }
   }
 

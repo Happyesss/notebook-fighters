@@ -31,7 +31,7 @@ for (const r of ROSTER) {
   check(diff.length === 0 && n >= 25, `${n} costume lines; reading and stats unchanged by them${diff.length ? " — changed: " + diff.map((r) => r.id).join(",") : ""}`);
 }
 const tiers = (["easy", "normal", "hard"] as const).map((d) => [d, DRAWINGS.slice(0, 6).map((x) => pickRival(x.strokes, d).id)] as const);
-check(tiers[0][1].every((id) => ["kid", "dog"].includes(id)) && tiers[2][1].every((id) => ["bodybuilder", "pehelwan"].includes(id)) && new Set(tiers[1][1]).size >= 2, `computer picks: ${tiers.map(([d, ids]) => `${d} → ${[...new Set(ids)].join("/")}`).join(" · ")}`);
+check(tiers[0][1].every((id) => ["kid", "dog"].includes(id)) && tiers[2][1].every((id) => ["pehelwan", "halloween", "skeleton", "bodybuilder"].includes(id)) && new Set(tiers[1][1]).size >= 2, `computer picks: ${tiers.map(([d, ids]) => `${d} → ${[...new Set(ids)].join("/")}`).join(" · ")}`);
 const sim = new NotebookSim({ player: DRAWINGS[0].strokes, rivalId: "bodybuilder", ai: "off" });
 check(sim.rivalEntry?.id === "bodybuilder" && sim.fighters[1].rig.plan === "biped", `?rival=bodybuilder → ${sim.rivalEntry?.name}, ${sim.fighters[1].rig.kind}`);
 // quality: careful drawings score higher than scrappy ones; the bonus never passes the cap

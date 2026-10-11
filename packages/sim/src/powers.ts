@@ -8,9 +8,14 @@
 import type { Pt } from "@nf/shared";
 
 export type Element = "fire" | "water" | "lightning" | "ice";
-export type PowerKind = Element | "wings" | "shield" | "spikes";
+/** the big rivals' own specials: nobody draws these, the fighter comes with one */
+export type Signature = "pumpkin" | "bones" | "quake" | "leap";
+export type PowerKind = Element | "wings" | "shield" | "spikes" | Signature;
 export const ELEMENTS: Element[] = ["fire", "water", "lightning", "ice"];
+/** the powers a drawing can have (the signatures are not drawn) */
 export const POWER_KINDS: PowerKind[] = ["fire", "water", "lightning", "ice", "wings", "shield", "spikes"];
+export const SIGNATURES: Signature[] = ["pumpkin", "bones", "quake", "leap"];
+export const isSignature = (k: PowerKind | null | undefined): k is Signature => !!k && (SIGNATURES as string[]).includes(k);
 
 export type Shape = "bolt" | "zigzag" | "wave" | "drop" | "loop" | "line" | "curve";
 export type ShapeInfo = { shape: Shape; corners: number; alternating: number; inflections: number; size: number; straight: number; turning: number };
@@ -115,6 +120,10 @@ export const POWER_INFO: Record<PowerKind, { name: string; special: string; pass
   wings: { name: "Wings", special: "Dive", passive: "double jump, glide", cooldown: 3.2, word: "SWOOP!" },
   shield: { name: "Shield", special: "Shield bash", passive: "blocks take almost nothing, stops shots", cooldown: 3.6, word: "BASH!" },
   spikes: { name: "Spikes", special: "Spike burst", passive: "thorns: hitting it hurts", cooldown: 5, word: "SPIKES!" },
+  pumpkin: { name: "Pumpkin", special: "Throw pumpkin", passive: "lobs a pumpkin over in an arc: it splats for damage and a short stagger", cooldown: 4.2, word: "SPLAT!" },
+  bones: { name: "Bones", special: "Bone scatter", passive: "falls apart into a pile of bones (the next hit passes through), then snaps back together a step forward with a bony strike", cooldown: 5, word: "CLACK!" },
+  quake: { name: "Ground shake", special: "Ground shake", passive: "a stomp sends a shockwave along the ground that staggers anyone standing on it: jump over it", cooldown: 5.2, word: "STOMP!" },
+  leap: { name: "Mega leap", special: "Mega leap", passive: "a huge jump across the arena that lands in a smash: it hits anyone near the landing", cooldown: 6, word: "SMASH!" },
 };
 
 /** element counters: water douses fire, fire melts ice, ice freezes water, lightning shocks water */
@@ -188,5 +197,7 @@ export function powerDoodle(kind: PowerKind, hand: Pt, back: Pt, s = 1, seed = 1
       for (let i = 0; i <= 8; i++) pts.push([bx - (i % 2 ? 0.055 : 0.012), by + i * 0.03]);
       return [{ color: "#2a241c", points: seg(pts, 3) }];
     }
+    default: // the signatures are not drawn
+      return [];
   }
 }

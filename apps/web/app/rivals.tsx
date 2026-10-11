@@ -23,8 +23,10 @@ const ABOUT: Record<RosterId, string> = {
   karate: "Gi, belt and a calm stare. A strong straight punch and a snapping kick.",
   ninja: "Masked and low to the ground, with a short blade at the ready. Quick in, quick out.",
   swordsman: "Fights with a sword in hand, so he can hit you from further away than a fist reaches.",
-  pehelwan: "A wrestler from the akhara: sumo-like bulk and heavy legs. Slow to get going, hard to move.",
-  bodybuilder: "Drawn a size bigger than everyone else on the page. Hulking arms, heavy hits, a wide stance.",
+  pehelwan: "A wrestler from the akhara: sumo-like bulk and heavy legs. One stomp and the whole page shakes.",
+  halloween: "A scarecrow in a ragged cloak with a carved pumpkin for a head. It lobs pumpkins at you from across the page.",
+  skeleton: "Nothing but bones, and it rattles. Hit it at the wrong moment and it falls to pieces, then snaps back together right next to you.",
+  bodybuilder: "Drawn a size bigger than everyone else on the page. Hulking arms, heavy hits, and a leap that crosses the arena.",
 };
 
 const BUTTON_NAMES: Record<RivalProfile["moves"][number]["button"], string> = { punch: "Punch button", kick: "Kick button", run: "Run in + punch", air: "Jump + attack" };
@@ -182,13 +184,15 @@ export function RivalCard({ id, player, level: level0, onFight, onClose }: { id:
         <h3>Special move</h3>
         {p.special ? (
           <p data-testid="cc-special">
-            <b>★ {p.special.move}</b> ({p.special.name}, every {p.special.cooldown} s): {p.special.passive}.
+            <b>★ {p.special.move}</b> ({p.special.signature ? "" : `${p.special.name}, `}every {p.special.cooldown} s): {p.special.passive}.
           </p>
         ) : (
           <p data-testid="cc-special">None on {LEVEL_NAMES[level]}.</p>
         )}
         <p className="cc-note">
-          It draws itself a power to match yours: {LEVELS.map((l) => `${LEVEL_NAMES[l]} ${all[l].special ? all[l].special!.move : "none"}`).join(" · ")}.
+          {p.special?.signature
+            ? `Its own special on every level, ready again after ${LEVELS.map((l) => `${all[l].special?.cooldown ?? "–"} s on ${LEVEL_NAMES[l]}`).join(", ")}.`
+            : `It draws itself a power to match yours: ${LEVELS.map((l) => `${LEVEL_NAMES[l]} ${all[l].special ? all[l].special!.move : "none"}`).join(" · ")}.`}
         </p>
       </section>
       <section className="cc-block" aria-label="Moves">

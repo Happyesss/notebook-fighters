@@ -8,7 +8,7 @@ import { J, inferRig, fightStrokes, skinStrokes, sketchFighter, scaleRig, type D
 import { pickRival, rosterById, type RosterEntry, type RosterId } from "./roster";
 import { computeStats, type FighterStats, type PartKey } from "./stats";
 import { RapierRagdoll, loadPhysics, physicsReady } from "./physics";
-import { POWER_INFO, counterOf, elementMult, powerDoodle, type Element, type PowerKind } from "./powers";
+import { POWER_INFO, counterOf, elementMult, isSignature, powerDoodle, type Element, type PowerKind } from "./powers";
 
 export type FxEvent =
   /** `move`: the strike that landed (punch, kick, swing…); `heavy`: the striker is a sized-up hulk (deeper sound) */
@@ -46,10 +46,12 @@ export type FighterSnap = {
   burning: boolean;
   frozen: boolean;
   dashing: boolean;
+  /** Bone scatter: 0..1 while the skeleton lies in a pile of bones (0 = standing) */
+  scatter: number;
 };
 
 /** a thrown power: fireball, water wave, ice shard */
-export type Projectile = { kind: Element; owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; dmg: number };
+export type Projectile = { kind: Element | "pumpkin" | "quake"; owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; dmg: number; g?: number };
 /** a slippery puddle left by a water wave: the other side walks slowly through it */
 export type Puddle = { x: number; w: number; t: number; owner: number };
 
@@ -141,10 +143,19 @@ const STAGE = 2.7;
  * knocked-out ragdoll's walls are here too. Fixed size, so online and nearby clients agree on any screen.
  */
 export const WALL_X = STAGE + 0.3;
+/** Bone scatter: how long the skeleton lies in a pile, and how far it reappears forward */
+export const SCATTER_T = 0.55;
+const SCATTER_STEP = 0.6;
+/** a signature special's cooldown by level (Easy waits longer) */
+export const SIGNATURE_COOL: Record<Difficulty, number> = { easy: 1.5, normal: 1.2, hard: 1 };
 /** the most of a fighter's body counted against a wall (a long dog's snout may poke past) */
 const WALL_BODY = 0.5;
 const G_SCALE = 0.35; // tuning gravity (m/s²-ish) → figure heights / s²
 
+
+/** gravity on a lobbed pumpkin (figure heights / s²) */
+const PUMPKIN_G = 3.4;
+const isElement = (k: string): k is Element => k === "fire" || k === "water" || k === "lightning" || k === "ice";
 
 /** where f.x may go: its drawn body (torso + head, as drawn) stays between the walls */
 function wallBounds(f: { facing: number; rig: Rig }): [number, number] {
@@ -192,7 +203,13 @@ class Fighter {
   dive = 0;
   diveHit = false;
   airJumps = 0;
-  pendingShot = { t: -1, kind: null as Element | null };
+  pendingShot = { t: -1, kind: null as Element | "pumpkin" | "quake" | null };
+  /** the special's full cooldown (a signature special is slower on the easier levels) */
+  coolMax = 0;
+  /** Bone scatter: seconds left lying in a pile of bones (nothing hits it) */
+  scatter = 0;
+  /** Mega leap: in the air, smashing down on landing */
+  slam = false;
   constructor(
     public rig: Rig,
     public color: string,
@@ -208,6 +225,7 @@ class Fighter {
     this.passives = new Set(kinds);
     const ps = this.stats.powers.find((p) => p.kind === this.special);
     this.powerMult = ps?.strength ?? 1;
+    this.coolMax = this.special ? POWER_INFO[this.special].cooldown : 0;
     this.x = startX;
     this.facing = startX < 0 ? 1 : -1;
   }
@@ -244,6 +262,8 @@ class Fighter {
     this.dive = 0;
     this.airJumps = 0;
     this.pendingShot = { t: -1, kind: null };
+    this.scatter = 0;
+    this.slam = false;
     this.lunge = { v: 0, t: 0 };
     this.pendingJump = -1;
     this.blocking = this.crouching = this.struck = this.ko = this.won = false;
@@ -272,10 +292,11 @@ class Fighter {
       element: this.element,
       passives: [...this.passives],
       cool: this.cool,
-      coolMax: this.special ? POWER_INFO[this.special].cooldown : 0,
+      coolMax: this.coolMax,
       burning: this.burn.t > 0,
       frozen: this.frozen > 0,
       dashing: this.dash.t > 0 || this.dive === 2,
+      scatter: this.scatter > 0 ? Math.min(1, this.scatter / SCATTER_T) : 0,
     };
   }
 }
@@ -312,7 +333,7 @@ export type SimOptions = {
 export const GAME_PACE = 0.72;
 /** pre-drawn rivals: overall strength by tier (1 kid/dog, 2 boxer/karate/ninja/swordsman, 3 pehelwan/bodybuilder) */
 /** a pre-drawn rival with a power: its overall strength by power (tuned with test/bot.ts) */
-export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1 };
+export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95 };
 /** the CPU blocks a beast's attacks less often (tuned with the bot: a four-legged drawing was blocked into 0% wins on Hard) */
 const HARD_TO_READ = new Set<string>(["bite", "tailWhip", "charge", "pounce"]);
 export const HARD_TO_READ_BLOCK = 0.5;
@@ -335,7 +356,7 @@ export function rivalPowerFor(player: Rig, difficulty: Difficulty): PowerKind | 
 /** the CPU rival's sketch, with its power doodle drawn on */
 export function rivalStrokes(power: PowerKind | null, drawn?: InkStroke[] | null): InkStroke[] {
   const base = drawn ?? sketchFighter(11, "#1d4f89", "brute");
-  if (!power) return base;
+  if (!power || isSignature(power)) return base;
   return [...base, ...powerDoodle(power, power === "shield" ? { x: 0.3, y: 0.43 } : { x: 0.71, y: 0.43 }, power === "spikes" ? { x: 0.49, y: 0.4 } : { x: 0.49, y: 0.34 }, 1, 5)];
 }
 
@@ -356,6 +377,8 @@ export class NotebookSim {
     return (this.seed - 1) / 2147483646;
   }
   fighters: Fighter[];
+  /** gravity as of the last step (figure heights / s²): the Mega leap aims with it */
+  private gNow = 9.8 * G_SCALE;
   curr: SimState;
   prev: SimState;
   frame = 0;
@@ -402,10 +425,11 @@ export class NotebookSim {
     const rivalPower = opts.rivalPower === "auto" ? rivalPowerFor(playerRig, this.difficulty) : opts.rivalPower ?? null;
     this.rivalId = opts.rival ? null : opts.rivalId ?? null;
     this.rivalEntry = this.rivalId ? (this.rivalId === "auto" ? pickRival(opts.player ?? null, this.difficulty) : rosterById(this.rivalId)) : null;
-    const rivalRig = (opts.rival && inferRig(opts.rival)) || inferRig(rivalStrokes(rivalPower, this.rivalEntry?.strokes))!;
+    const rivalRig = (opts.rival && inferRig(opts.rival)) || inferRig(rivalStrokes(this.rivalEntry?.signature ? null : rivalPower, this.rivalEntry?.strokes))!;
     this.fighters = [new Fighter(playerRig, "#2a241c", -1.1), new Fighter(rivalRig, "#1d4f89", 1.1)];
     this.koPhysics = opts.physics === "rapier" && physicsReady() ? "rapier" : "classic";
     for (const f of this.fighters) f.anim.physics = this.koPhysics;
+    this.applySignature();
     this.fairRival();
     this.countdownLength = opts.countdown ?? 0;
     this.countdown = this.countdownLength;
@@ -444,7 +468,7 @@ export class NotebookSim {
   checksum(): number {
     const nums: number[] = [this.frame, this.round, this.wins[0], this.wins[1], this.hitstop, this.countdown];
     for (const f of this.fighters) {
-      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time);
+      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0);
       for (const j of f.anim.joints) nums.push(j.x, j.y);
     }
     for (const p of this.projectiles) nums.push(p.x, p.y, p.vx, p.life);
@@ -483,10 +507,27 @@ export class NotebookSim {
       // the rival redraws its power for the new level (and an auto-picked opponent is re-picked)
       const power = this.rivalAuto ? rivalPowerFor(this.fighters[0].rig, d) : this.fighters[1].special;
       if (this.rivalId === "auto") this.rivalEntry = pickRival(this.playerInk, d);
-      this.fighters[1] = new Fighter(inferRig(rivalStrokes(power ?? null, this.rivalEntry?.strokes))!, "#1d4f89", 1.1);
+      this.fighters[1] = new Fighter(inferRig(rivalStrokes(this.rivalEntry?.signature ? null : power ?? null, this.rivalEntry?.strokes))!, "#1d4f89", 1.1);
       this.fighters[1].anim.physics = this.koPhysics;
+      this.applySignature();
       this.fairRival();
-    }
+    } else this.applySignature();
+  }
+
+  /**
+   * The big rivals come with their own special (Pumpkin, Bone scatter, Ground shake, Mega leap) instead of
+   * drawing themselves a power to match yours. Easier levels wait longer between them; the damage is
+   * scaled by the level like any rival special.
+   */
+  private applySignature() {
+    const sig = this.rivalEntry?.signature;
+    const f = this.fighters[1];
+    if (!sig || !f) return;
+    if (f.special !== sig) f.cool = Math.max(f.cool, 1.5);
+    f.special = sig;
+    f.element = null;
+    f.powerMult = 1;
+    f.coolMax = Math.round(POWER_INFO[sig].cooldown * SIGNATURE_COOL[this.difficulty] * 100) / 100;
   }
 
   /**
@@ -610,6 +651,7 @@ export class NotebookSim {
       this.curr = this.snapshot();
       return;
     }
+    this.gNow = tuning.gravity * G_SCALE; // the mega leap aims with this frame's gravity
     const [me, foe] = this.fighters;
     const over = me.ko || foe.ko;
     // "3-2-1 FIGHT!": nobody acts (and the rival does not think) until the countdown is over
@@ -676,7 +718,7 @@ export class NotebookSim {
       return;
     }
     const busy = f.anim.busy && (isAttack(f.anim.move) || f.anim.move === "hit" || f.anim.move === "hitLow" || f.anim.move === "jumpCrouch");
-    const stunned = f.stun > 0;
+    const stunned = f.stun > 0 || f.scatter > 0;
     // held states
     const wantBlock = !!input.block && !f.airborne && !stunned;
     const wantCrouch = !!input.crouch && !f.airborne && !stunned && !wantBlock;
@@ -724,6 +766,7 @@ export class NotebookSim {
 
   private physics(f: Fighter, tuning: Tuning, dt: number) {
     const g = tuning.gravity * G_SCALE;
+    this.gNow = g;
     f.stun = Math.max(0, f.stun - dt);
     if (f.pendingJump >= 0) {
       f.pendingJump -= dt;
@@ -742,6 +785,7 @@ export class NotebookSim {
         this.fx.push({ kind: "land", x: f.x, y: 0 });
         if (f.dive === 2) f.lunge = { v: f.lunge.v * 0.5, t: Math.min(f.lunge.t, 0.12) };
         f.dive = 0;
+        if (f.slam) this.slamDown(f);
       }
     }
     if (f.lunge.t > 0) {
@@ -937,6 +981,8 @@ export class NotebookSim {
     const anchor = spec.striker === "weapon" ? att.world(att.anim.joints[att.rig.weapon?.limb === "armB" ? J.handB : J.handF]) : null;
     att.tip = samples.reduce((a, p) => (anchor ? Math.hypot(p.x - anchor.x, p.y - anchor.y) > Math.hypot(a.x - anchor.x, a.y - anchor.y) : (p.x - a.x) * att.facing > 0) ? p : a, samples[0]);
     if (vic.ko || att.struck || !(pre?.active ?? att.anim.active)) return;
+    // a skeleton lying in a pile of bones: the blow passes through
+    if (vic.scatter > 0) return;
     // hurtbox = the victim's actual bones (its drawn proportions)
     let d = Infinity;
     let tip = att.tip;
@@ -1031,7 +1077,7 @@ export class NotebookSim {
   // ------------------------------------------------------------- powers (drawn add-ons)
   private startSpecial(f: Fighter, foe: Fighter) {
     const kind = f.special!;
-    f.cool = POWER_INFO[kind].cooldown;
+    f.cool = f.coolMax;
     f.blocking = f.crouching = false;
     const dir = f.facing;
     this.fx.push({ kind: "special", ...f.world(f.anim.joints[J.chest]), power: kind, dir });
@@ -1065,12 +1111,37 @@ export class NotebookSim {
       cast("punch");
       const gap = Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front;
       if (gap < 0.65 && Math.abs(foe.y - f.y) < 0.6) this.specialHit(f, foe, "spikes", 7, 2.4, 0.3, f.world(f.anim.joints[J.chest]));
+    } else if (kind === "pumpkin") {
+      cast("punch");
+      f.pendingShot = { t: 0.16, kind: "pumpkin" };
+    } else if (kind === "quake") {
+      // a heavy stomp: the shockwave leaves the foot as it comes down
+      cast("kick");
+      f.pendingShot = { t: 0.2, kind: "quake" };
+    } else if (kind === "bones") {
+      f.anim.play("crouch");
+      f.scatter = SCATTER_T;
+      f.vx = 0;
+    } else if (kind === "leap") {
+      // a huge jump that lands just short of the foe
+      const g = this.gNow;
+      // about a figure-height high whatever the gravity, landing right on top of the foe's front
+      const vy = Math.sqrt(2 * g * 1.0);
+      const air = (2 * vy) / g;
+      const aim = foe.x - dir * (f.rig.extent.front + foe.rig.extent.front) * 0.35;
+      const vx = Math.max(-4.2, Math.min(4.2, (aim - f.x) / air));
+      f.vy = vy;
+      f.y = 0.0002;
+      f.dash = { t: air, v: vx, kind: "leap", hit: true };
+      f.slam = true;
+      cast("kick", true);
+      this.fx.push({ kind: "jump", x: f.x, y: 0 });
     }
   }
 
   /** a special lands: block/shield, element counters, the power's own effect, K.O. */
   private specialHit(att: Fighter, vic: Fighter, kind: PowerKind, dmg0: number, kb: number, stun: number, at: Pt, shot = false) {
-    if (vic.ko) return;
+    if (vic.ko || vic.scatter > 0) return;
     const prof = AI_PROFILES[this.difficulty];
     const scale = this.ai === "on" ? (att === this.fighters[0] ? prof.playerDmg : prof.rivalDmg * prof.rivalSpecial) : 1;
     const elem = kind === "fire" || kind === "water" || kind === "lightning" || kind === "ice" ? kind : null;
@@ -1078,7 +1149,7 @@ export class NotebookSim {
     let dmg = dmg0 * scale * att.powerMult * att.stats.bodyScale * counter * vic.stats.armour.torso;
     const dir = Math.sign(vic.x - att.x) || att.facing;
     const front = (vic.x - att.x) * vic.facing < 0;
-    const color = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c" }[kind];
+    const color = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c" }[kind];
     if (vic.blocking && front) {
       // a drawn shield stops shots and specials cold; a bare block takes a little
       dmg *= vic.passives.has("shield") ? 0 : 0.2;
@@ -1130,10 +1201,45 @@ export class NotebookSim {
         if (f.pendingShot.t < 0 && f.pendingShot.kind) {
           const k = f.pendingShot.kind;
           const hand = f.world(f.anim.joints[f.rig.strike.punch]);
-          const y = k === "water" ? 0.2 : Math.max(0.3, Math.min(0.55, hand.y));
-          const spec = { fire: { v: 3.3, r: 0.075, dmg: 9 }, water: { v: 2.6, r: 0.2, dmg: 7 }, ice: { v: 3.0, r: 0.065, dmg: 8 }, lightning: { v: 0, r: 0, dmg: 0 } }[k];
-          this.projectiles.push({ kind: k, owner: i, x: f.x + f.facing * (f.rig.extent.front + 0.08), y, vx: spec.v * f.facing, vy: 0, r: spec.r, life: 1.6, dmg: spec.dmg });
+          if (k === "pumpkin") {
+            // lobbed in an arc that comes down on the foe's chest (aimed where the foe stands now)
+            const x0 = f.x + f.facing * (f.rig.extent.front + 0.06);
+            const y0 = Math.max(0.45, Math.min(0.8, hand.y + 0.05));
+            const g = PUMPKIN_G;
+            const dx = Math.max(0.25, Math.min(3.4, Math.abs(foe.x - x0)));
+            const vx = Math.max(1.1, Math.min(2.3, dx / 0.55)); // a short toss still hangs in the air a moment
+            const T = dx / vx;
+            const vy = (0.42 - y0 + 0.5 * g * T * T) / T;
+            this.projectiles.push({ kind: "pumpkin", owner: i, x: x0, y: y0, vx: vx * f.facing, vy, r: 0.085, life: 2.4, dmg: 10, g });
+          } else if (k === "quake") {
+            this.projectiles.push({ kind: "quake", owner: i, x: f.x + f.facing * (f.rig.extent.front + 0.04), y: 0.05, vx: 2.9 * f.facing, vy: 0, r: 0.13, life: 1.25, dmg: 8 });
+            this.impact += 0.55;
+            this.fx.push({ kind: "land", x: f.x + f.facing * 0.15, y: 0 });
+          } else {
+            const y = k === "water" ? 0.2 : Math.max(0.3, Math.min(0.55, hand.y));
+            const spec = { fire: { v: 3.3, r: 0.075, dmg: 9 }, water: { v: 2.6, r: 0.2, dmg: 7 }, ice: { v: 3.0, r: 0.065, dmg: 8 }, lightning: { v: 0, r: 0, dmg: 0 } }[k];
+            this.projectiles.push({ kind: k, owner: i, x: f.x + f.facing * (f.rig.extent.front + 0.08), y, vx: spec.v * f.facing, vy: 0, r: spec.r, life: 1.6, dmg: spec.dmg });
+          }
           f.pendingShot = { t: -1, kind: null };
+        }
+      }
+      // Bone scatter: back together a step forward, with a bony strike
+      if (f.scatter > 0) {
+        f.scatter -= dt;
+        f.vx = 0;
+        if (f.scatter <= 0) {
+          f.scatter = 0;
+          f.facing = foe.x >= f.x ? 1 : -1;
+          const room = Math.max(0, Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front - 0.05);
+          f.x += f.facing * Math.min(SCATTER_STEP, room);
+          const [lo, hi] = wallBounds(f);
+          f.x = Math.max(lo, Math.min(hi, f.x));
+          f.anim.attack("punch", { air: false });
+          f.struck = true;
+          f.lunge = { v: 0, t: 0 };
+          this.fx.push({ kind: "special", ...f.world(f.anim.joints[J.chest]), power: "bones", dir: f.facing });
+          const near = Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front;
+          if (near < 0.45 && Math.abs(foe.y - f.y) < 0.6) this.specialHit(f, foe, "bones", 8, 1.6, 0.35, f.world(f.anim.joints[J.chest]));
         }
       }
       // dashes and dives hit once on contact
@@ -1155,13 +1261,20 @@ export class NotebookSim {
     }
     // shots fly; opposite shots clash (water douses fire, fire melts ice, ice freezes water, lightning … has no shot)
     for (const p of this.projectiles) {
+      if (p.g) p.vy -= p.g * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
+      // a pumpkin that misses splats on the ground
+      if (p.kind === "pumpkin" && p.y <= 0.04 && p.life > 0) {
+        p.life = 0;
+        this.fx.push({ kind: "clash", x: p.x, y: 0.05, word: "SPLAT!", color: "#e07a2f" });
+      }
     }
     for (const a of this.projectiles)
       for (const b of this.projectiles) {
         if (a === b || a.owner === b.owner || a.life <= 0 || b.life <= 0 || Math.abs(a.x - b.x) > a.r + b.r || Math.abs(a.y - b.y) > a.r + b.r + 0.15) continue;
+        if (!isElement(a.kind) || !isElement(b.kind)) continue;
         const m = elementMult(a.kind, b.kind);
         const at = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
         if (m >= 1) b.life = 0;
@@ -1173,14 +1286,17 @@ export class NotebookSim {
       if (p.life <= 0 || frozenTime) continue;
       const vic = F[1 - p.owner];
       const att = F[p.owner];
-      if (vic.ko) continue;
+      if (vic.ko || vic.scatter > 0) continue;
+      // the shockwave runs along the ground: a fighter in the air is not on it
+      if (p.kind === "quake" && vic.airborne) continue;
       const vj = vic.anim.joints;
       let d = Infinity;
       for (const [a, b] of BONE_PAIRS) d = Math.min(d, segDist(p, vic.world(vj[a]), vic.world(vj[b])));
       if (d < p.r + 0.06) {
         p.life = 0;
-        const kb = p.kind === "water" ? 2.8 : 1.1;
-        this.specialHit(att, vic, p.kind, p.dmg, kb, p.kind === "fire" ? 0.25 : 0.3, { x: p.x, y: p.y }, true);
+        const kb = p.kind === "water" ? 2.8 : p.kind === "quake" ? 1.5 : p.kind === "pumpkin" ? 1.3 : 1.1;
+        const stun = p.kind === "fire" ? 0.25 : p.kind === "quake" ? 0.75 : p.kind === "pumpkin" ? 0.5 : 0.3;
+        this.specialHit(att, vic, p.kind, p.dmg, kb, stun, { x: p.x, y: Math.max(0.15, p.y) }, true);
       }
     }
     // a water wave that misses still leaves its puddle where it lands
@@ -1191,6 +1307,18 @@ export class NotebookSim {
     this.projectiles = this.projectiles.filter((p) => p.life > 0 && Math.abs(p.x) < STAGE + 0.4);
     for (const q of this.puddles) q.t -= dt;
     this.puddles = this.puddles.filter((q) => q.t > 0);
+  }
+
+  /** Mega leap lands: a smash that hits anyone near the landing (in the air it misses) */
+  private slamDown(f: Fighter) {
+    f.slam = false;
+    f.dash.t = 0;
+    f.vx = 0;
+    this.impact += 0.9;
+    const foe = this.fighters[f === this.fighters[0] ? 1 : 0];
+    const near = Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front;
+    if (!foe.ko && near < 0.65 && foe.y < 0.25) this.specialHit(f, foe, "leap", 12, 2.2, 0.55, { x: (f.x + foe.x) / 2, y: 0.35 });
+    else this.fx.push({ kind: "clash", x: f.x, y: 0.1, word: "THUD!", color: "#2a241c" });
   }
 
   private knockOut(vic: Fighter, att: Fighter, kb: number) {
@@ -1246,6 +1374,11 @@ export class NotebookSim {
         this.aiDecided = true;
         // an animal's bite, tail whip, charge or pounce comes low and from odd angles: harder to read and block
         const read = HARD_TO_READ.has(foe.anim.move) ? HARD_TO_READ_BLOCK : 1;
+        // the skeleton's answer to a hit coming in: fall to bits (the hit whiffs) and reform next to you
+        if (me.special === "bones" && me.cool <= 0 && gap < 0.9 + reach && this.rnd() < prof.special * 1.6) {
+          out.special = true;
+          return out;
+        }
         if (gap < 0.9 + reach && this.rnd() < prof.block * read) this.aiHold.block = 0.45;
       }
     }
@@ -1260,13 +1393,27 @@ export class NotebookSim {
       if (me.special && me.cool <= 0 && this.rnd() < prof.special) {
         const k = me.special;
         const g = gap - reach;
-        const fits = k === "fire" || k === "water" || k === "ice" ? g > 0.35 : k === "lightning" || k === "wings" ? g > 0.15 && g < 1.4 : k === "shield" ? g < 0.8 : g < 0.45;
+        // signatures: a pumpkin is lobbed from mid range, the stomp only when the foe is on the ground,
+        // the mega leap from afar, the bone scatter up close (and mostly as an answer, above)
+        const grounded = foe.y < 0.05;
+        const fits =
+          k === "pumpkin" ? g > 0.2 && g < 3
+          : k === "quake" ? g < 2.2 && grounded
+          : k === "leap" ? g < 4 && grounded
+          : k === "bones" ? g < 0.25 && this.rnd() < 0.4
+          : k === "fire" || k === "water" || k === "ice" ? g > 0.35 : k === "lightning" || k === "wings" ? g > 0.15 && g < 1.4 : k === "shield" ? g < 0.8 : g < 0.45;
         if (fits) {
           out.special = true;
           return out;
         }
       }
       const r = this.rnd();
+      // a thrower or a leaper with its special ready makes room for it now and then
+      if ((me.special === "pumpkin" || me.special === "leap") && me.cool <= 0 && gap < 0.65 + reach && r < 0.15) {
+        this.aiHold.x = -toward;
+        this.aiTimer = 0.7;
+        return out;
+      }
       if (gap < 0.65 + reach) {
         if (r < prof.attack * 0.6) out.punch = true;
         else if (r < prof.attack) out.kick = true;
