@@ -1173,7 +1173,7 @@ export class NotebookSim {
     this.hitstop = Math.min(10, Math.round(3 + dmg / 5));
     this.impact += dmg / 16;
     const word = counter > 1 ? `${POWER_INFO[kind].word.replace("!", "")} ×1.5!` : POWER_INFO[kind].word;
-    this.fx.push({ kind: "hit", ...at, power: dmg, low: false, word, color, who: this.fighters.indexOf(vic) });
+    this.fx.push({ kind: "hit", ...at, power: dmg, low: false, word, color, who: this.fighters.indexOf(vic), heavy: att.size > 1.1 });
     if (vic.hp <= 0) this.knockOut(vic, att, kb);
     else vic.anim.play("hit");
   }

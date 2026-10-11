@@ -78,7 +78,7 @@ The four heavyweights bring **their own special** instead of drawing one to matc
 | **Pehelwan** | **Ground shake** | a stomp sends a shockwave along the ground: it staggers you if you're standing on it, jump over it; the screen shakes |
 | **Bodybuilder** | **Mega leap** | a huge jump across the arena that lands in a smash on anyone near the landing |
 
-The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per rival (all body types, Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Bodybuilder 47 / 12 / 17 %: the Hulk is still the hardest.
+The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per rival (all body types, Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Bodybuilder 46 / 20 / 16 %: the Hulk is still the hardest.
 
 <img src="docs/media/03-hulk-fight.jpg" width="49%" alt="The Hulk hits back"> <img src="docs/media/10-rivals.jpg" width="49%" alt="Pick a rival">
 

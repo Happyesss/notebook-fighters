@@ -212,7 +212,7 @@ for (const dev of DEVICES) {
   await p.waitForFunction(() => window.__nf?.sim, null, { timeout: 60000 });
   const fight = await p.evaluate(() => ({ rival: window.__nf.sim.rivalEntry?.id, level: window.__nf.sim.difficulty, hp: window.__nf.sim.fighters[1].stats.hp }));
   const shownHp = Number(/HP (\d+)/.exec(ninjaStats)?.[1]);
-  check(pickN === 9 && thumbs === 8 && fight.rival === "ninja" && fight.level === "hard" && shownHp === fight.hp, `${dev}: picker (${pickN} choices, ${thumbs} drawings) → "${fightLabel}" → fighting ${fight.rival} on ${fight.level}; HP on the card ${shownHp} = in the fight ${fight.hp}`);
+  check(pickN === 11 && thumbs === 10 && fight.rival === "ninja" && fight.level === "hard" && shownHp === fight.hp, `${dev}: picker (${pickN} choices, ${thumbs} drawings) → "${fightLabel}" → fighting ${fight.rival} on ${fight.level}; HP on the card ${shownHp} = in the fight ${fight.hp}`);
 
   // 6) Rotate on an upright phone
   const rotVisible = await p.getByTestId("rotate").isVisible();

@@ -802,7 +802,7 @@ One line is appended after each test finishes.
 - **Fixes on the way:** the mega leap's first-frame gravity was the default, not the tuned one, so the jump was aimed wrong. The sim now sets `gNow` at the start of each step.
 - **Tests:**
   - `packages/sim/test/signatures.ts` (in `pnpm test`): each special does its thing (arc, splat and stagger, ground miss; the scatter dodges a punch then strikes 0.6 forward; the shockwave hits a grounded foe and a jump clears it; the leap is 0.98 high, crosses 2.7 and smashes for 11.9); Easy > Normal > Hard cooldowns; the CPU uses each 2 to 4 times in 40 s on Hard; replays are identical.
-  - `packages/sim/test/rivals.ts` (`pnpm --filter @nf/sim rivals`): the bot against every rival on every level, 170 rounds a cell. Bot wins (Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Bodybuilder 47 / 12 / 17 %, the hardest on Hard.
+  - `packages/sim/test/rivals.ts` (`pnpm --filter @nf/sim rivals`): the bot against every rival on every level, 170 rounds a cell. Bot wins (Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Bodybuilder 46 / 20 / 16 %, the hardest on Hard.
   - `roster.ts`: the Hard picks are the four heavyweights. `pnpm --filter @nf/sim balance`: BOT OK.
   - `e2e/rivals.mjs`: the home roster order, the cards (desktop and iPhone), the picker, and each special on screen (desktop and iPhone landscape).
 - **Screens:** `/workspace/shots-rivals/` (home roster, each heavyweight's card, the picker, each special mid-move).
