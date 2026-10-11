@@ -5,25 +5,10 @@ import { useRouter } from "next/navigation";
 import { STORAGE_KEY, STORAGE_KEY_P2 } from "@nf/shared";
 import { ROSTER, type RosterId } from "@nf/sim";
 import { judgeDrawing } from "./reading";
+import { MIN_STEP2, PENCILS, clamp01, hasInk, paintInk, type Pt, type Stroke } from "./ink";
+import { SketchModal } from "./sketch-modal";
 
-type Pt = { x: number; y: number };
-type Stroke = { color: string; points: Pt[] };
-
-const PENCILS = [
-  { name: "Pencil", color: "#2a241c" },
-  { name: "Red", color: "#c23b32" },
-  { name: "Blue", color: "#1d4f89" },
-  { name: "Green", color: "#2f7d4a" },
-  { name: "Orange", color: "#e07a2f" },
-  { name: "Purple", color: "#6d4ca8" },
-  { name: "Gold", color: "#c4962c" },
-  { name: "Pink", color: "#d45d8c" },
-];
 const RIVAL_KEY = "nf:rival";
-
-function hasInk(strokes: Stroke[]) {
-  return strokes.some((stroke) => stroke.points.length > 1);
-}
 
 /**
  * The notebook page: draw your fighter (box 1), pick who you fight (a pre-drawn computer fighter, or let
@@ -33,6 +18,8 @@ export function HomeClient() {
   const [boxes, setBoxes] = useState<Stroke[][]>(() => [[], []]);
   const [pen, setPen] = useState(PENCILS[0].color);
   const [rival, setRival] = useState<RosterId | "auto">("auto");
+  /** which box is open on the big drawing pad */
+  const [big, setBig] = useState<number | null>(null);
   const router = useRouter();
   const ready = hasInk(boxes[0]);
   const twoReady = hasInk(boxes[0]) && hasInk(boxes[1]);
@@ -103,11 +90,26 @@ export function HomeClient() {
             pen={pen}
             onChange={(next) => setBoxes((prev) => prev.map((slot, i) => (i === index ? next : slot)))}
             onDuel={() => fight(strokes)}
+            onExpand={() => setBig(index)}
             player={index + 1}
             title={index === 0 ? "You" : "Player 2 (optional)"}
           />
         ))}
       </div>
+      {big !== null && (
+        <SketchModal
+          title={big === 0 ? "Fighter 1 (you)" : "Fighter 2 (player 2)"}
+          strokes={boxes[big]}
+          pen={pen}
+          onPen={setPen}
+          onCancel={() => setBig(null)}
+          onDone={(next) => {
+            const slot = big;
+            setBoxes((prev) => prev.map((s, i) => (i === slot ? next : s)));
+            setBig(null);
+          }}
+        />
+      )}
       <section className="rival-pick" aria-label="Choose your opponent">
         <h2>Who do you fight?</h2>
         <div className="rival-grid">
@@ -154,6 +156,7 @@ function Slot({
   pen,
   onChange,
   onDuel,
+  onExpand,
   player = 0,
   title,
 }: {
@@ -162,6 +165,8 @@ function Slot({
   pen: string;
   onChange: (strokes: Stroke[]) => void;
   onDuel: () => void;
+  /** open this drawing on the big drawing pad */
+  onExpand: () => void;
   /** 1 or 2 when this box is a 2P duellist */
   player?: number;
   title?: string;
@@ -199,6 +204,27 @@ function Slot({
 
   return (
     <div className="slot-wrap">
+      <div className="slot-tools">
+        <button
+          className="slot-expand"
+          type="button"
+          data-testid={`expand-${index}`}
+          onClick={onExpand}
+          aria-label={`Expand fighter ${index + 1}: draw it big with colours and an eraser`}
+          title="Draw big: colours, line weights, eraser, undo"
+        >
+          ⤢ expand
+        </button>
+        <button
+          className="slot-clear"
+          type="button"
+          data-testid={`clear-${index}`}
+          onClick={() => onChange([])}
+          aria-label={`Clear fighter ${index + 1}`}
+        >
+          clear
+        </button>
+      </div>
     <div className="slot">
       <span className="slot-label">{index + 1}</span>
       {player > 0 && <span className={`slot-badge p${player}`}>{title ? title.replace(" (optional)", "") : `P${player}`}{title?.includes("(optional)") && <span className="opt"> (optional)</span>}</span>}
@@ -222,21 +248,13 @@ function Slot({
           const stroke = local.current[local.current.length - 1];
           const next = point(event);
           const last = stroke.points[stroke.points.length - 1];
-          if (last && (next.x - last.x) ** 2 + (next.y - last.y) ** 2 < 0.00004) return;
+          if (last && (next.x - last.x) ** 2 + (next.y - last.y) ** 2 < MIN_STEP2) return;
           stroke.points.push(next);
           paintInk(canvasRef.current, local.current);
         }}
         onPointerUp={finishStroke}
         onPointerCancel={finishStroke}
       />
-      <button
-        className="slot-clear"
-        type="button"
-        onClick={() => onChange([])}
-        aria-label={`Clear fighter ${index + 1}`}
-      >
-        clear
-      </button>
       {inked && (
         <button className="slot-duel" type="button" onClick={onDuel} aria-label={`Duel with fighter ${index + 1}`}>
           duel →
@@ -252,46 +270,3 @@ function Slot({
     </div>
   );
 }
-
-function paintInk(canvas: HTMLCanvasElement | null, strokes: Stroke[]) {
-  if (!canvas) return;
-  const size = fit(canvas);
-  if (!size) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, size.w, size.h);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  for (const stroke of strokes) {
-    if (stroke.points.length < 2) continue;
-    // fine pencil lines (w < 1) still get at least ~0.5 css px so they read on the small card
-    ctx.lineWidth = Math.max(0.5 * size.dpr, Math.max(2, size.w * 0.012) * ((stroke as { w?: number }).w ?? 1));
-    ctx.strokeStyle = stroke.color;
-    ctx.beginPath();
-    stroke.points.forEach((pt, i) => {
-      const x = pt.x * size.w;
-      const y = pt.y * size.h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }
-}
-
-function fit(canvas: HTMLCanvasElement): { w: number; h: number; dpr: number } | null {
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) return null;
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const w = Math.round(rect.width * dpr);
-  const h = Math.round(rect.height * dpr);
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-  }
-  return { w, h, dpr };
-}
-
-function clamp01(n: number) {
-  return Math.max(0, Math.min(1, n));
-}
-

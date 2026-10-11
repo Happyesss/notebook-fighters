@@ -11,6 +11,7 @@ node powers.mjs        # every drawn power + counters
 node twop.mjs          # two players on one keyboard
 node feel.mjs          # hit-stop, KO slow-mo, replay, Save clip
 node sfx.mjs           # every sound credited, served, decoded and fired on the right frame
+node sketch.mjs        # equal drawing boxes, the expand pad (colours, eraser, undo), coloured fighter, room-code Copy (needs the Worker)
 node online.mjs        # two browsers, one room, lockstep in sync (also over lag)
 node human.mjs         # a "casual human" bot plays real rounds
 ```

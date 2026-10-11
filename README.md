@@ -40,6 +40,8 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 
 A fully offline reader finds the **head, torso, arms and legs** in your strokes, builds a 15-joint rig and skins *your own ink* to the bones. It also understands **body plans**: biped, four-legged beast (trots in diagonal pairs), blob, snake, car (rolls and pops wheelies), tree, four-armed, even a lone circle. Extras become **tails, capes, hats and weapons**; a sword in the hand gives reach.
 
+Hit **⤢ expand** on a drawing box for a big, near full-screen page: eight coloured pencils, four line weights, an eraser that really cuts strokes apart, undo/redo and clear. It works with mouse, finger and pen. The colours you pick stay on every stroke, in the arena, in replays and in online matches.
+
 <br clear="right">
 
 ### 🌑 Scrubbing = strength, neatness = a bonus

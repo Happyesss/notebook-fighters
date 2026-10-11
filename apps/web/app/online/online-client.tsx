@@ -60,7 +60,13 @@ export default function OnlineClient() {
   const [lobby, setLobby] = useState<LobbyMsg | null>(null);
   const [mine, setMine] = useState<string>("");
   const [peerNote, setPeerNote] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  /** which thing was just copied ("code" or "link"), for the "Copied!" feedback */
+  const [copied, setCopied] = useState<"" | "code" | "link" | "manual-code" | "manual-link">("");
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(""), copied.startsWith("manual") ? 5000 : 1800);
+    return () => clearTimeout(t);
+  }, [copied]);
   const actions = useRef<{ create: () => void; join: (c: string) => void }>({ create: () => {}, join: () => {} });
   const netRef = useRef<HTMLSpanElement>(null);
   const fills = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
@@ -416,19 +422,33 @@ export default function OnlineClient() {
           {error && <p className="lobby-error" data-testid="lobby-error">{error}</p>}
           {code && phase === "lobby" && (
             <div className="lobby-room">
-              <p>
-                Room <b data-testid="room-code">{code}</b>
-              </p>
-              <p className="share">
-                Send your friend this link: <code data-testid="share-url">{share}</code>{" "}
+              <p className="room-line">
+                Room <b data-testid="room-code" id="room-code">{code}</b>
                 <button
                   type="button"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(share).then(() => setCopied(true));
-                  }}
+                  className="copy-btn"
+                  data-testid="copy-code"
+                  aria-label={`Copy room code ${code}`}
+                  onClick={async () => setCopied((await copyText(code, "room-code")) ? "code" : "manual-code")}
                 >
-                  {copied ? "Copied ✓" : "Copy"}
+                  {copied === "code" ? "Copied!" : "Copy"}
                 </button>
+                <span className="copy-note" role="status" aria-live="polite" data-testid="copy-status">
+                  {copied === "code" ? "Room code copied" : copied === "manual-code" ? "Press Ctrl/⌘+C to copy" : ""}
+                </span>
+              </p>
+              <p className="share">
+                Send your friend this link: <code data-testid="share-url" id="share-url">{share}</code>{" "}
+                <button
+                  type="button"
+                  className="copy-btn"
+                  data-testid="copy-link"
+                  aria-label="Copy the invite link"
+                  onClick={async () => setCopied((await copyText(share, "share-url")) ? "link" : "manual-link")}
+                >
+                  {copied === "link" ? "Copied!" : "Copy link"}
+                </button>
+                {copied === "manual-link" && <span className="copy-note"> Press Ctrl/⌘+C to copy</span>}
               </p>
               <ul className="seats" data-testid="seats">
                 {(lobby?.seats ?? [null, null]).map((s, i) => (
@@ -491,4 +511,45 @@ export default function OnlineClient() {
       </div>
     </main>
   );
+}
+
+/**
+ * Copies text: the async Clipboard API first, then the old execCommand("copy") on a hidden
+ * textarea (http pages, older browsers, embedded webviews). If both fail, the text in the page
+ * (element `selectId`) is selected so the player can copy it by hand; returns false then.
+ */
+async function copyText(text: string, selectId: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // denied or unavailable: try the fallback
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    ta.remove();
+    if (ok) return true;
+  } catch {
+    // fall through
+  }
+  const el = document.getElementById(selectId);
+  if (el) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }
+  return false;
 }
