@@ -1,0 +1,25 @@
+{
+  // Root-level copy of apps/worker/wrangler.jsonc so a plain `npx wrangler deploy` from the repo
+  // root (e.g. Cloudflare Workers Builds' default deploy command) also works.
+  // Keep the two files in sync. Run `pnpm run build` first so apps/web/out exists.
+  "$schema": "apps/worker/node_modules/wrangler/config-schema.json",
+  "name": "notebook-fighters",
+  "main": "apps/worker/src/index.ts",
+  "compatibility_date": "2026-10-11",
+  "workers_dev": true,
+  "assets": {
+    "directory": "apps/web/out",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*", "/r/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [
+    // SQLite-backed Durable Objects are the ones available on the Workers Free plan
+    { "tag": "v1", "new_sqlite_classes": ["Room"] }
+  ],
+  "observability": { "enabled": true }
+}

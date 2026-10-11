@@ -9,7 +9,7 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Colyseus](https://img.shields.io/badge/Colyseus-0.16-E84A5F)](https://colyseus.io)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20Durable%20Objects-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/durable-objects/)
 [![Rapier](https://img.shields.io/badge/Rapier2D-deterministic-6C5CE7)](https://rapier.rs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F5C518.svg)](LICENSE)
 
@@ -73,7 +73,7 @@ Eight hand-drawn computer opponents at real fighter height: **skinny kid, dog, b
 Two kids, one keyboard: P1 on WASD, P2 on the arrows — each with their own drawing. On a touch screen each player gets their own pads. Best-of-3 with instant rematches.
 
 ### 🌐 Online rooms with deterministic lockstep
-**Create room → share the 6-letter code or `/r/CODE` link.** A [Colyseus](https://colyseus.io) room relays inputs only; both browsers run the same deterministic sim (seeded CPU dice, deterministic Rapier build) with a small input delay, a checksum every second, and seat-holding reconnects (60 s) that rebuild from the input log. Tested at 100 ± 30 ms of lag: **0 desyncs**.
+**Create room → share the 6-letter code or `/r/CODE` link.** Each room is a [Cloudflare Durable Object](https://developers.cloudflare.com/durable-objects/) that relays inputs only; both browsers run the same deterministic sim (seeded CPU dice, deterministic Rapier build) with a small input delay, a checksum every second, and seat-holding reconnects (60 s) that rebuild from the input log. Inputs travel 2–4 frames per message, so a player sends ≈15–30 messages a second. Tested at 100 ± 30 ms of lag: **0 desyncs**.
 
 ### 💥 Rapier ragdoll KOs + slow-mo replay
 Knockouts hand the rig to a **Rapier2D (deterministic)** ragdoll — the dog folds with legs splayed, the car rolls onto its roof. Hits **freeze** for a few frames by weight, the victim squashes, the camera punches in, the KO **auto-replays in slow motion**, and **Save clip** exports the last 5 s as WebM.
@@ -136,12 +136,13 @@ Laptops show **only the keyboard legend**; phones and tablets show **only the to
 
 ## Getting started
 
-Requires **Node 20+** and **pnpm 10** (`corepack enable`).
+Requires **Node 22+** (Wrangler needs it) and **pnpm 10** (`corepack enable`).
 
 ```bash
 pnpm i            # install the workspace
-pnpm dev          # web app      → http://localhost:3100
-pnpm server       # game server  → ws://localhost:2567  (only needed for online rooms)
+pnpm worker:dev   # build the site, then run the whole thing locally → http://localhost:8787
+                  #   (Wrangler + Miniflare: static site + online rooms, exactly as deployed)
+pnpm dev          # or: Next.js dev server with hot reload → http://localhost:3100
 ```
 
 | URL | What |
@@ -149,10 +150,34 @@ pnpm server       # game server  → ws://localhost:2567  (only needed for onlin
 | `http://localhost:3100/` | the notebook: draw your fighter (and optional P2), pick a rival |
 | `/play` | fight the computer · `?level=easy\|normal\|hard` · `?rival=bodybuilder` |
 | `/play?mode=2p` | two players, one keyboard |
-| `/online` · `/r/CODE` | create / join an online room |
+| `/online` · `/r/CODE` | create / join an online room (needs the Worker: `pnpm worker:dev`) |
 | `?renderer=pixi` · `?physics=classic` | opt into the PixiJS renderer · use the classic verlet KO |
 
-The online page connects to `ws(s)://<this host>:2567` by default; override with `?server=wss://host` or `NEXT_PUBLIC_NF_SERVER`. Production build: `pnpm build && pnpm start`.
+The online page talks to the Worker that served it (`/api/rooms`, `wss://<host>/api/rooms/CODE/ws`). Under `pnpm dev` there is no Worker on :3100, so run `pnpm worker:dev` alongside and start Next with `NEXT_PUBLIC_NF_SERVER=http://localhost:8787 pnpm dev` (or add `?server=http://localhost:8787` to `/online`).
+
+## Deploy (Cloudflare Workers, free plan)
+
+The whole game is **one Cloudflare Worker** (`apps/worker`): the static Next.js export is served by [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/), and online rooms run on a SQLite-backed [Durable Object](https://developers.cloudflare.com/durable-objects/) — the kind included in the **Workers Free** plan.
+
+```bash
+pnpm --filter @nf/worker exec wrangler login   # once
+pnpm run deploy                                # next build → apps/web/out, then wrangler deploy
+```
+
+(`pnpm run deploy`, not `pnpm deploy` — that name is a built-in pnpm command.) The game is then live at `https://notebook-fighters.<your-subdomain>.workers.dev`; add a custom domain in the Cloudflare dashboard if you like.
+
+**Deploying from GitHub with Cloudflare Workers Builds:** connect the repo to a Worker named `notebook-fighters`, set the build command to `pnpm run build`, and set the deploy command to `cd apps/worker && npx wrangler deploy`. The default `npx wrangler deploy` from the repo root also works, because the root `wrangler.jsonc` mirrors `apps/worker/wrangler.jsonc` (keep the two in sync).
+
+| Route | What |
+|---|---|
+| `GET /api/health` | `{ ok: true }` |
+| `POST /api/rooms` | claims a fresh 6-character room code |
+| `GET /api/rooms/:code` | that room's counters (phase, frames, checksums, desyncs, reconnects) |
+| `GET /api/rooms/:code/ws` | WebSocket into the room's Durable Object (`idFromName(code)`) |
+| `/r/:code` | 302 → `/online?join=CODE` |
+| everything else | the static site (`404.html` when nothing matches) |
+
+**Cost:** nothing on the free plan — over the daily limits requests simply fail until the next day; you're only billed if you upgrade. Rooms use the WebSocket Hibernation API (no timers, alarms for the 60 s seat hold, runtime-answered keepalives), so a room waiting for a friend costs no duration, and incoming WebSocket messages bill 20:1. With batching a 1-minute match is ≈1,800–3,600 messages ≈ 90–180 billed requests, so the 100,000 free requests a day cover roughly **550–1,100 one-minute matches a day**.
 
 ## Architecture
 
@@ -162,7 +187,7 @@ notebook-fighters/
 │   ├── web/             Next.js app: notebook (/), duel (/play), online (/online, /r/[code])
 │   │   ├── app/play/      fight page, touch pads, gamepad, input-mode, layered SFX
 │   │   └── public/sfx/    52 Kenney CC0 sounds (.ogg + .m4a) + CREDITS.md
-│   └── server/          Colyseus room server (:2567) + headless lockstep test
+│   └── worker/          the Cloudflare Worker: static assets + Room Durable Object + headless online test
 ├── packages/
 │   ├── shared/          types, tuning constants, net protocol
 │   ├── sim/             the game: rig reader, skinning, stats, powers, anim, AI, Rapier KO, lockstep
@@ -180,7 +205,7 @@ flowchart LR
     SIM["packages/sim<br/>rig reader · stats · powers<br/>anim · AI · Rapier KO · lockstep"]
   end
   SHARED["packages/shared<br/>types · tuning · net protocol"]
-  SERVER["apps/server<br/>Colyseus room · input relay<br/>checksums · reconnect"]
+  SERVER["apps/worker (Cloudflare)<br/>static assets · Room Durable Object<br/>input relay · checksums · reconnect"]
 
   WEB --> SIM
   WEB --> RENDER
@@ -202,16 +227,16 @@ pnpm test           # 15 headless sim suites: rig, shapes, recognize, duel, ko, 
                     #   stats, edge, reach, versus, scribble, rivalcheck, rapier, roster
 pnpm --filter @nf/sim test:duel     # …or any one suite
 pnpm --filter @nf/sim balance       # casual-human bot vs the CPU on every level (win-rate table)
-pnpm test:online    # headless 2-client lockstep: lag, drop + reconnect, page reload (needs pnpm server)
+pnpm test:online    # headless 2-client lockstep against the Worker: lag, drop + reconnect, page reload
+                    #   (needs pnpm worker:dev; BASE=https://… to test a deploy)
 ```
 
-Browser checks (Playwright, against a running `pnpm dev`) live in [`e2e/`](e2e/README.md): per-device controls, phone/tablet layouts, Fighter Card, powers, 2P, game feel, SFX timing and a two-browser online match.
+Browser checks (Playwright, against a running `pnpm dev`; `online.mjs` against `pnpm worker:dev`) live in [`e2e/`](e2e/README.md): per-device controls, phone/tablet layouts, Fighter Card, powers, 2P, game feel, SFX timing and a two-browser online match.
 
 ✅ **Latest full regression: all green** — `tsc` ×5 packages, 15 sim suites, `next build`, and e2e controls, sfx, mobile ×6 devices, card, powers, twop, human, feel and online (log in [`docs/ITERATIONS.md`](docs/ITERATIONS.md)).
 
 ## Roadmap & known gaps
 
-- **Deploy** the web app (e.g. Vercel) and the Colyseus server on a public host so online rooms work across the internet — today the server must be reachable on port 2567.
 - **Balance outliers:** on Easy the car and snake win ≈99 %; on Hard lightning (≈40 %) and four-armed (≈37 %) are a bit strong, shield and spikes sit near the 15 % floor. The Hulk is the toughest rival (≈19 % bot wins on Normal).
 - **Reader edge cases:** a car drawn with its cabin dead-centre keeps its drawn direction; a tree fights as a big-headed figure; no sword parry yet.
 - **PixiJS renderer** is opt-in (`?renderer=pixi`) — on a GPU-less box it ran 36–52 fps vs a steady 60 for Canvas2D; needs measuring on real GPUs.
@@ -223,7 +248,7 @@ The full build history — 11+ iterations of fixes, balance numbers and test run
 ## Credits
 
 - **Sound effects:** [Kenney](https://www.kenney.nl) — Impact Sounds, Foley Sounds, RPG Audio, Sci-Fi Sounds, Digital Audio, Interface Sounds and Music Jingles, released under **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)** (public domain). Every file and its source is listed in [`apps/web/public/sfx/CREDITS.md`](apps/web/public/sfx/CREDITS.md). Thank you, Kenney!
-- Built with [Next.js](https://nextjs.org), [React](https://react.dev), [Colyseus](https://colyseus.io), [Rapier](https://rapier.rs) and [PixiJS](https://pixijs.com).
+- Built with [Next.js](https://nextjs.org), [React](https://react.dev), [Cloudflare Workers + Durable Objects](https://developers.cloudflare.com/durable-objects/), [Rapier](https://rapier.rs) and [PixiJS](https://pixijs.com).
 
 ## License
 

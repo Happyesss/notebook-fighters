@@ -1,6 +1,6 @@
 # e2e — browser checks
 
-Playwright scripts that drive the real game in Chromium. Start the web app (`pnpm dev`, :3100) — and the game server (`pnpm server`, :2567) for `online.mjs` — then:
+Playwright scripts that drive the real game in Chromium. Start the web app (`pnpm dev`, :3100) — or, for `online.mjs`, the Worker (`pnpm worker:dev`, :8787: site + online rooms) — then:
 
 ```bash
 cd e2e && npm i && npx playwright install chromium

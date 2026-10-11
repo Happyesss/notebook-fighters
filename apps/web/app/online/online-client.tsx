@@ -2,14 +2,15 @@
 
 /**
  * Online 1v1 (plan §10): "Create room" gives a code / link, a friend joins, both drawings go to the
- * server, then 3-2-1 and a best of 3 — deterministic lockstep with input delay over a Colyseus room.
- * ?server=ws://host:2567 picks the game server (default: this host, port 2567)
+ * server, then 3-2-1 and a best of 3 — deterministic lockstep with input delay over one WebSocket to
+ * the room's Durable Object on the Notebook Fighters Worker.
+ * ?server=https://host picks the game server (default: this site; NEXT_PUBLIC_NF_SERVER for `next dev`)
  * ?lag=100&jitter=30 simulates a slow link (extra round trip in ms, ± per message)
  * ?autoplay=SEED lets a scripted fighter play for you (tests, demos)
  */
-import { ROOM_NAME, SIM_DT, STORAGE_KEY, isRoomCode, type InkStroke, type LobbyMsg, type PlayerInput } from "@nf/shared";
+import { SIM_DT, STORAGE_KEY, isRoomCode, type InkStroke, type LobbyMsg, type PlayerInput } from "@nf/shared";
 import type { NotebookView } from "@nf/render";
-import type { FxEvent, OnlineSession } from "@nf/sim";
+import type { FxEvent, NetRoom, OnlineSession } from "@nf/sim";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { KEYS_1P, bannerFor, makeReader, paintMeter } from "../play/controls";
@@ -21,17 +22,16 @@ import { Sfx } from "../play/sfx";
 import { chosePixi, pickPhysics, pickRenderer } from "../play/renderer-pref";
 
 type Phase = "menu" | "connecting" | "lobby" | "fight" | "error";
-type ColyRoom = import("colyseus.js").Room;
-type ColyClient = import("colyseus.js").Client;
 
 const tokenKey = (code: string) => `nf:online:${code}`;
 
+/** the Worker serving this page is also the game server; `next dev` points at `wrangler dev` instead */
 function serverUrl(params: URLSearchParams) {
   const fromParam = params.get("server");
   if (fromParam) return fromParam;
   const env = process.env.NEXT_PUBLIC_NF_SERVER;
   if (env) return env;
-  return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:2567`;
+  return window.location.origin;
 }
 
 /** the same scripted fighter the headless test uses (seeded, so a run can be repeated) */
@@ -79,13 +79,15 @@ export default function OnlineClient() {
     let stop = false;
     let raf = 0;
     let session: OnlineSession | null = null;
-    let room: ColyRoom | null = null;
-    let client: ColyClient | null = null;
+    let room: NetRoom | null = null;
+    const base = serverUrl(params);
     let view: NotebookView | null = null;
     let unfit = () => {};
     let mounting = false;
     let leaving = false;
     let reconnecting = false;
+    let NetRoomCls: typeof NetRoom | null = null;
+    let FINAL: Set<number> = new Set([4000]);
     const lag = Number(params.get("lag") ?? 0);
     const jitter = Number(params.get("jitter") ?? 0);
     const auto = params.get("autoplay");
@@ -234,37 +236,42 @@ export default function OnlineClient() {
       }
     };
 
-    const bind = (r: ColyRoom) => {
+    const bind = (r: NetRoom) => {
       room = r;
       session!.attach(r);
       setCode(r.roomId);
       saveToken();
       r.onLeave((code) => {
         session?.detach();
-        if (leaving || stop) return;
-        // 4000 = left on purpose; anything else is a dropped connection: reconnect with the token
-        if (code === 4000) return;
+        if (leaving || stop || room !== r) return;
+        // left on purpose / seat taken by another tab / seat expired: nothing to reconnect to
+        if (FINAL.has(code)) {
+          if (code !== 4000) setPeerNote(code === 4001 ? "This match continued in another tab." : "The match is over — start a new room.");
+          return;
+        }
+        // anything else is a dropped connection: take the seat back with the token
         void reconnectLoop();
       });
-      r.onError((c, m) => console.warn("room error", c, m));
     };
 
     const reconnectLoop = async () => {
-      if (reconnecting || !client || !room) return;
+      if (reconnecting || !room) return;
       reconnecting = true;
       const token = room.reconnectionToken;
+      const code = room.roomId;
       setPeerNote("Connection lost — reconnecting…");
       for (let i = 0; i < 30 && !stop; i++) {
         await new Promise((r) => setTimeout(r, 800));
         try {
-          const r = await client.reconnect(token);
+          const r = await NetRoomCls!.join(base, code, { token });
           net.reconnects++;
           bind(r);
           setPeerNote(null);
           reconnecting = false;
           return;
-        } catch {
-          // server still away: try again
+        } catch (err) {
+          // server still away: try again (unless the seat is gone for good)
+          if (FINAL.has((err as { code?: number }).code ?? 0)) break;
         }
       }
       reconnecting = false;
@@ -286,11 +293,12 @@ export default function OnlineClient() {
       try {
         setPhase("connecting");
         setError(null);
-        const { Client } = await import("colyseus.js");
-        client = new Client(serverUrl(params));
+        const sim = await import("@nf/sim");
+        NetRoomCls = sim.NetRoom;
+        FINAL = sim.FINAL_CLOSE;
         session = await newSession();
         const opts = { name: params.get("name") ?? (mode === "create" ? "Host" : "Guest"), strokes: drawing, physics: pickPhysics(params) };
-        let r: ColyRoom | null = null;
+        let r: NetRoom | null = null;
         if (mode === "join" && joinCode) {
           // a reload mid-match: the token from this tab gets our seat back, and we rebuild from the log
           let token: string | null = null;
@@ -301,17 +309,17 @@ export default function OnlineClient() {
           }
           if (token) {
             try {
-              r = await client.reconnect(token);
+              r = await sim.NetRoom.join(base, joinCode, { token });
               net.rebuilt = true;
-              session.expectRebuild(0);
+              session.expectRebuild(r.seat);
             } catch {
               r = null;
             }
           }
-          r ??= await client.joinById(joinCode, opts);
-        } else r = await client.create(ROOM_NAME, opts);
+          r ??= await sim.NetRoom.join(base, joinCode, opts);
+        } else r = await sim.NetRoom.create(base, opts);
         if (stop) {
-          void r.leave(true).catch(() => {});
+          r.leave();
           return;
         }
         bind(r);
@@ -359,7 +367,7 @@ export default function OnlineClient() {
       keys,
       /** pull the cable: close the socket without leaving (the server holds the seat) */
       drop() {
-        (room?.connection as unknown as { close(): void } | undefined)?.close();
+        room?.drop();
       },
     };
     (window as unknown as { __nf?: typeof hook }).__nf = hook;
@@ -374,7 +382,7 @@ export default function OnlineClient() {
       window.removeEventListener("pointerdown", unlock);
       unwatchInput();
       window.removeEventListener("keydown", unlock);
-      void room?.leave(true).catch(() => {});
+      room?.leave();
       session?.dispose();
       view?.destroy();
       unfit();

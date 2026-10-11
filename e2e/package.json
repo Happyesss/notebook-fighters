@@ -2,7 +2,7 @@
   "name": "@nf/e2e",
   "private": true,
   "type": "module",
-  "description": "Playwright browser checks for Notebook Fighters (expects the web app on :3100 and, for online.mjs, the server on :2567)",
+  "description": "Playwright browser checks for Notebook Fighters (expects the web app on :3100; online.mjs expects the Worker from pnpm worker:dev on :8787)",
   "dependencies": {
     "playwright": "^1.64.0"
   }

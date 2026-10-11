@@ -11,7 +11,6 @@
     "@nf/render": "workspace:*",
     "@nf/shared": "workspace:*",
     "@nf/sim": "workspace:*",
-    "colyseus.js": "0.16.22",
     "next": "^16.4.0",
     "pixi.js": "^8.22.0",
     "react": "^19.2.0",

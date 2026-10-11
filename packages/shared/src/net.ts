@@ -1,12 +1,29 @@
 /**
- * Online 1v1 protocol (plan §10): Colyseus room "duel", deterministic lockstep with input delay.
- * The server is authoritative for the room phase and the two drawings; it relays inputs, keeps a
- * full input log per seat (for reconnects) and compares checksums.
+ * Online 1v1 protocol (plan §10): one Cloudflare Durable Object per 6-char room code, native
+ * WebSocket, deterministic lockstep with input delay. The room is authoritative for the phase and
+ * the two drawings; it relays inputs, keeps a full input log per seat (for reconnects) and
+ * compares checksums.
+ *
+ * Wire format, both directions: one JSON array of [type, payload] pairs per WebSocket message, so
+ * several messages (an input batch + a checksum + a ping) cost one billed request. The bare text
+ * "ping" is answered with "pong" by the runtime itself (keepalive; never wakes the room).
+ *
+ *   client → room   join {name, strokes, token?} · i {f, b[]} · c {f, h} · ping {t, r?} · resync · leave
+ *   room → client   welcome {code, seat, token} · lobby · rtt {r} · start · i {s, f, b[]} · c {s, f, h}
+ *                   · desync {f, h} · peer {seat, connected, gone?} · log {logs} · pong {t}
+ *   close codes     4000 left on purpose · 4001 seat taken over by a newer connection
+ *                   · 4404 no such room · 4409 room full / already fighting · 4410 seat expired
  */
 import type { InkStroke, PlayerInput } from "./index";
 
 export const ROOM_NAME = "duel";
-export const DEFAULT_SERVER_PORT = 2567;
+/** `wrangler dev` default port (local online play) */
+export const DEFAULT_SERVER_PORT = 8787;
+/** a dropped player's seat is held this long (ms) */
+export const SEAT_HOLD_MS = 60_000;
+/** an input message carries at most this many new frames (sent earlier when the peer would need them) */
+export const MAX_INPUT_BATCH = 4;
+export const CLOSE = { left: 4000, replaced: 4001, notFound: 4404, full: 4409, expired: 4410 } as const;
 /** inputs are sent with the last few frames again (cheap insurance, plan §10) */
 export const REDUNDANCY = 8;
 /** clients report a checksum every this many frames */
@@ -44,6 +61,9 @@ export function unpackInput(b: number): PlayerInput {
 
 export type SeatInfo = { name: string; kind: string; connected: boolean } | null;
 export type JoinOptions = { name?: string; strokes?: InkStroke[] | null; physics?: "rapier" | "classic" };
+/** client → room, first message on a socket; a `token` from an earlier welcome takes that seat back */
+export type JoinMsg = { name?: string; strokes?: InkStroke[] | null; token?: string };
+export type WelcomeMsg = { code: string; seat: 0 | 1; token: string; rejoined: boolean };
 /** server → client */
 export type LobbyMsg = { code: string; seats: [SeatInfo, SeatInfo]; you: 0 | 1 };
 export type StartMsg = { code: string; drawings: [InkStroke[] | null, InkStroke[] | null]; names: [string, string]; delay: number; physics: "rapier" | "classic"; rtts: [number, number] };

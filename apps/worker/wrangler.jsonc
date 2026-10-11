@@ -1,0 +1,28 @@
+{
+  // Notebook Fighters as ONE Cloudflare Worker: the static game site (Workers Static Assets)
+  // + online 1v1 rooms on a Durable Object (WebSocket Hibernation API, SQLite backend = free plan).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "notebook-fighters",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-11",
+  "workers_dev": true,
+  "assets": {
+    // `pnpm build` (Next.js static export) writes the site here
+    "directory": "../web/out",
+    "binding": "ASSETS",
+    // /play → play.html, /online → online.html
+    "html_handling": "auto-trailing-slash",
+    // unknown paths → out/404.html with a 404 status
+    "not_found_handling": "404-page",
+    // the Worker code only runs for these; everything else is served straight from the asset cache
+    "run_worker_first": ["/api/*", "/r/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [
+    // SQLite-backed Durable Objects are the ones available on the Workers Free plan
+    { "tag": "v1", "new_sqlite_classes": ["Room"] }
+  ],
+  "observability": { "enabled": true }
+}

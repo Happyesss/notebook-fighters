@@ -1,9 +1,11 @@
 /**
- * Deterministic lockstep with input delay (plan §10, step 1). Transport-agnostic: the browser
- * wires it to a Colyseus room, the headless test to colyseus.js in Node.
+ * Deterministic lockstep with input delay (plan §10, step 1). Transport-agnostic: the browser and
+ * the headless test wire it to a NetRoom (a WebSocket to the room's Durable Object).
  *
- *  · Your input sampled now is scheduled for frame (current + delay) and sent at once, with the
- *    previous few frames again (redundancy).
+ *  · Your input sampled now is scheduled for frame (current + delay) and sent with the previous few
+ *    frames again (redundancy). With `batch` options, frames are held back and sent several per
+ *    message — but only while the slack in the input delay allows it: a frame is never held so long
+ *    that the peer would have to wait for it (see maybeFlush), so batching adds no delay or stalls.
  *  · Frame f is simulated only when both seats' inputs for f are known; otherwise the game waits
  *    (a "stall") — both clients therefore run exactly the same frames with the same inputs.
  *  · Rounds advance on a fixed frame count after a K.O., so no "next round" message can race.
@@ -15,6 +17,13 @@ import type { FxEvent, NotebookSim } from "./sim";
 export type LockstepSend = {
   input(f: number, bits: number[]): void;
   checksum(f: number, h: number): void;
+};
+
+export type BatchOpts = {
+  /** frames an input takes to reach the peer (≈ (rttA + rttB) / 2 in frames) */
+  need: number;
+  /** most new frames per message */
+  maxBatch: number;
 };
 
 export class Lockstep {
@@ -39,6 +48,7 @@ export class Lockstep {
     public seat: 0 | 1,
     public delay: number,
     private send: LockstepSend,
+    private batch: BatchOpts | null = null,
   ) {
     // the first `delay` frames have no input from anyone
     for (let f = 0; f < delay; f++) this.inputs[0][f] = this.inputs[1][f] = 0;
@@ -56,8 +66,28 @@ export class Lockstep {
     const mine = this.inputs[this.seat];
     mine[this.nextLocal] = packInput(input);
     this.nextLocal++;
-    this.flush();
+    this.maybeFlush();
     return true;
+  }
+
+  /**
+   * send the unsent frames now, unless holding them one more tick is free: sent next tick, the
+   * oldest one (frame `unsent`) still reaches the peer `need` frames later with a frame to spare
+   * before the peer simulates it. A full batch always goes.
+   */
+  maybeFlush() {
+    if (this.unsent >= this.nextLocal) return false;
+    const b = this.batch;
+    if (!b || this.nextLocal - this.unsent >= b.maxBatch || this.unsent - this.frame < b.need + 2) {
+      this.flush();
+      return true;
+    }
+    return false;
+  }
+
+  /** anything held back goes now (we're stalled: the timing estimate is off, don't make it worse) */
+  flushPending() {
+    if (this.unsent < this.nextLocal) this.flush();
   }
 
   /** (re)send our last few frames */
@@ -100,6 +130,19 @@ export class Lockstep {
     let n = 0;
     while (this.inputs[0][this.frame + n] !== undefined && this.inputs[1][this.frame + n] !== undefined) n++;
     return n;
+  }
+
+  /**
+   * steps to run this tick: 3 when we've fallen behind the peer in time, else 1. Without batching
+   * that's "more than 2 frames are ready"; with batching (which assumes both clients keep the full
+   * input-delay window) it's "the peer's inputs reach further ahead than they would if we were on
+   * time" — otherwise the extra steps would eat the delay window the batching relies on.
+   */
+  catchUp(): number {
+    const b = this.batch;
+    if (!b) return this.backlog() > 2 ? 3 : 1;
+    const lead = this.inputs[1 - this.seat].length - this.frame;
+    return lead > this.delay - b.need + b.maxBatch + 1 && this.backlog() > 2 ? 3 : 1;
   }
 
   /** simulate one frame if both inputs are in; returns its effects, or null on a stall */

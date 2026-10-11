@@ -1,5 +1,6 @@
-// Phase 5 (online): two real browsers (separate Playwright contexts) play each other over the
-// Colyseus server on :2567. 1) a full best-of-3 with no added latency, 2) a full best-of-3 with a
+// Phase 5 (online): two real browsers (separate Playwright contexts) play each other through the
+// Notebook Fighters Worker (site + Durable Object rooms), by default `pnpm worker:dev` on :8787
+// (BASE=https://notebook-fighters.<you>.workers.dev to test a deploy). 1) a full best-of-3 with no added latency, 2) a full best-of-3 with a
 // simulated 100 ms round trip ±30 ms jitter on both clients, 3) real keyboard input crossing over,
 // a pulled cable (socket closed → seat held → auto-reconnect) and a page reload (rebuild from the
 // server's input log, fast-forward). Pass = same rounds/winners on both, every shared checksum
@@ -11,7 +12,7 @@ import { execFileSync } from "node:child_process";
 const OUT = process.env.OUT || new URL("./shots/p5", import.meta.url).pathname;
 fs.mkdirSync(OUT, { recursive: true });
 const SET = JSON.parse(fs.readFileSync(new URL("./drawings.json", import.meta.url), "utf8"));
-const B = "http://localhost:3100";
+const B = (process.env.BASE || "http://localhost:8787").replace(/\/$/, "");
 // extra query for every client page, e.g. Q="physics=rapier&renderer=pixi" (the host's physics is the room's)
 const XQ = process.env.Q ? "&" + process.env.Q : "";
 const OUTP = process.env.TAG ? `_${process.env.TAG}` : "";
@@ -22,6 +23,17 @@ const check = (ok, msg) => {
   if (!ok) bad++;
 };
 const errs = [];
+const roomInfo = async (code) => (await fetch(`${B}/api/rooms/${code}`)).json();
+// the Worker serves the site, the sounds, the API and the share-link redirect
+{
+  const get = (p, o) => fetch(B + p, o);
+  const [home, play, online, sfx, health, nope] = await Promise.all([get("/"), get("/play"), get("/online"), get("/sfx/punch_1.m4a"), get("/api/health"), get("/no-such-page")]);
+  check(home.status === 200 && play.status === 200 && online.status === 200 && /text\/html/.test(play.headers.get("content-type")), `site: / ${home.status}, /play ${play.status}, /online ${online.status}`);
+  const buf = await sfx.arrayBuffer();
+  check(sfx.status === 200 && buf.byteLength > 1000, `sfx: /sfx/punch_1.m4a ${sfx.status} ${sfx.headers.get("content-type")} ${buf.byteLength} B`);
+  check(health.status === 200 && (await health.json()).ok === true, `GET /api/health ${health.status}`);
+  check(nope.status === 404, `unknown page → ${nope.status} (404.html)`);
+}
 async function player(name, drawing) {
   const ctx = await browser.newContext({ viewport: { width: 960, height: 600 } });
   const page = await ctx.newPage();
@@ -51,6 +63,8 @@ const state = (page) =>
       stalls: l.stalls,
       seat: s.seat,
       ff: s.fastForwarded,
+      sent: s.sentMsgs,
+      inputMsgs: s.inputMsgs,
       hud: document.querySelector('[data-testid="net-hud"]')?.textContent ?? "",
       peer: document.querySelector('[data-testid="peer-note"]')?.textContent ?? null,
       x0: window.__nf.sim.fighters[0].x,
@@ -75,15 +89,17 @@ async function match(label, q, opts = {}) {
   const code = await A.page.getByTestId("room-code").innerText();
   const share = await A.page.getByTestId("share-url").innerText();
   const redirect = await Bp.ctx.request.get(share, { maxRedirects: 0 });
-  check(/^[A-Z2-9]{6}$/.test(code) && share.endsWith(`/r/${code}`) && redirect.status() === 307 && redirect.headers().location?.includes(`/online?join=${code}`), `${label}: room ${code}, link ${share} → ${redirect.status()} ${redirect.headers().location}`);
+  check(/^[A-Z2-9]{6}$/.test(code) && share.endsWith(`/r/${code}`) && redirect.status() === 302 && redirect.headers().location?.includes(`/online?join=${code}`), `${label}: room ${code}, link ${share} → ${redirect.status()} ${redirect.headers().location}`);
   await Bp.page.goto(`${B}/online?join=${code}&${q}&autoplay=99&name=Ben${XQ}`, { waitUntil: "networkidle" });
   await Promise.all([A, Bp].map((p) => p.page.waitForFunction(() => window.__nf?.session?.lock && window.__nf?.view, null, { timeout: 60000 })));
   let shot = false;
   let a, b;
+  let t1 = 0, s1 = 0, f1 = 0;
   const deadline = Date.now() + 240000;
   while (Date.now() < deadline) {
     await A.page.waitForTimeout(1000);
     [a, b] = await Promise.all([state(A.page), state(Bp.page)]);
+    if (!t1 && a.frame > 240) [t1, s1, f1] = [Date.now(), a.sent, a.frame];
     if (!shot && opts.shot && a.frame > 420 && !a.results.length) {
       shot = true;
       await Promise.all([A.page.screenshot({ path: `${OUT}/online_A${OUTP}.png` }), Bp.page.screenshot({ path: `${OUT}/online_B${OUTP}.png` })]);
@@ -100,7 +116,11 @@ async function match(label, q, opts = {}) {
   check(ra === rb && a.results.length >= 2, `${label}: same rounds and winner on both — A: ${ra} | B: ${rb}`);
   compare(label, a, b);
   check(/ping \d+ ms/.test(a.hud) && /in sync/.test(a.hud), `${label}: HUD "${a.hud}"`);
+  const secs = (Date.now() - t1) / 1000;
   console.log(`     delay ${a.delay}f · rtt A ${a.rtt} ms B ${b.rtt} ms · stalled ticks A ${a.stalls} B ${b.stalls} · renderer ${a.backend} · KO physics ${a.physics}/${b.physics}`);
+  console.log(`     A sent ${a.sent} WS messages for ${a.frame} frames · in the fight ${((a.sent - s1) / secs).toFixed(1)} msg/s, ${((a.frame - f1) / Math.max(1, a.sent - s1)).toFixed(2)} frames/message`);
+  const info = await roomInfo(code);
+  check(info.exists && info.desyncs === 0 && info.phase === "fight", `${label}: room ${code} on the Worker — ${JSON.stringify(info)}`);
   await A.ctx.close();
   await Bp.ctx.close();
 }
@@ -146,12 +166,12 @@ if (process.env.ONLY !== "1") {
   const [a, b] = await Promise.all([state(A.page), state(Bp.page)]);
   check(b.ff > 200 && Math.abs(a.frame - b.frame) < 30, `${label}: B reloaded, rebuilt and fast-forwarded ${b.ff} frames, now frame ${b.frame} (A ${a.frame})`);
   compare(label, a, b);
+  const info = await roomInfo(code);
+  check(info.exists && info.desyncs === 0 && info.reconnects >= 2, `${label}: room ${code} — ${JSON.stringify(info)}`);
   await A.page.screenshot({ path: `${OUT}/online_after_reload_A${OUTP}.png` });
   await A.ctx.close();
   await Bp.ctx.close();
 }
-const health = JSON.parse(execFileSync("curl", ["-s", "localhost:2567/health"]).toString());
-check(health.desyncs === 0, `server: ${JSON.stringify(health)}`);
 check(errs.length === 0, `page errors: ${errs.length ? errs.slice(0, 6).join(" | ") : 0}`);
 // the side-by-side shot: two clients mid-match
 try {
