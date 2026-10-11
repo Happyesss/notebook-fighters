@@ -58,6 +58,17 @@ async function drag(t, pts) {
   }
 }
 const PENCIL = { "#2a241c": "Pencil", "#c23b32": "Red", "#1d4f89": "Blue", "#2f7d4a": "Green", "#6d4ca8": "Purple", "#c4962c": "Gold", "#e07a2f": "Orange", "#d45d8c": "Pink" };
+/** the box's position once any (smooth) scrolling has stopped */
+async function settled(loc) {
+  let a = await loc.boundingBox();
+  for (let i = 0; i < 30; i++) {
+    await loc.page().waitForTimeout(60);
+    const b = await loc.boundingBox();
+    if (Math.abs(b.y - a.y) < 0.5 && Math.abs(b.x - a.x) < 0.5) return b;
+    a = b;
+  }
+  return a;
+}
 /** draws a test drawing into a box, picking each stroke's coloured pencil first */
 async function drawIn(t, testid, name) {
   const loc = t.p.getByTestId(testid);
@@ -70,8 +81,10 @@ async function drawIn(t, testid, name) {
       const btn = t.p.locator(`.pencils button[aria-label="${want}"]`);
       for (let i = 0; i < 3 && (await btn.getAttribute("aria-pressed")) !== "true"; i++) await (t.touch ? btn.tap() : btn.click());
       pen = want;
+      // (tapping a pencil can scroll the page up to the colour row: bring the box back before drawing)
+      await loc.scrollIntoViewIfNeeded();
     }
-    const r = await loc.boundingBox();
+    const r = await settled(loc);
     await drag(t, s.points.map((q) => [r.x + q.x * r.width, r.y + q.y * r.height]));
   }
   await t.p.waitForTimeout(150);
@@ -82,8 +95,12 @@ async function tapUntil(t, id, done, n = 4) {
   for (let i = 0; i < n; i++) {
     await t.p.getByTestId(id).scrollIntoViewIfNeeded().catch(() => {});
     await tap(t, id);
-    await t.p.waitForTimeout(120);
-    if (await done()) return i + 1;
+    // (a slow network delays client-side navigation: wait while the tapped control is gone or the page is changing)
+    for (let k = 0; k < 100; k++) {
+      await t.p.waitForTimeout(120);
+      if (await done()) return i + 1;
+      if (k >= 8 && (await t.p.getByTestId(id).count().catch(() => 0)) > 0) break;
+    }
   }
   return 0;
 }

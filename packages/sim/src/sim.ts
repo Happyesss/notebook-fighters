@@ -135,8 +135,23 @@ export const AI_PROFILES: Record<Difficulty, AiProfile> = {
 };
 
 const STAGE = 2.7;
+/**
+ * The stage walls, in figure units from the middle: the renderer draws the notebook's red margin line at
+ * -WALL_X and its mirror at +WALL_X. A fighter's drawn body (torso + head) stops at them, and the
+ * knocked-out ragdoll's walls are here too. Fixed size, so online and nearby clients agree on any screen.
+ */
+export const WALL_X = STAGE + 0.3;
+/** the most of a fighter's body counted against a wall (a long dog's snout may poke past) */
+const WALL_BODY = 0.5;
 const G_SCALE = 0.35; // tuning gravity (m/s²-ish) → figure heights / s²
 
+
+/** where f.x may go: its drawn body (torso + head, as drawn) stays between the walls */
+function wallBounds(f: { facing: number; rig: Rig }): [number, number] {
+  const back = Math.min(WALL_BODY, f.rig.extent.back);
+  const front = Math.min(WALL_BODY, f.rig.extent.front);
+  return f.facing > 0 ? [-WALL_X + back, WALL_X - front] : [-WALL_X + front, WALL_X - back];
+}
 
 class Fighter {
   anim: Animator;
@@ -767,7 +782,8 @@ export class NotebookSim {
     }
     f.x += f.vx * dt;
     if (f.ko) f.vx *= 0.9;
-    f.x = Math.max(-STAGE, Math.min(STAGE, f.x));
+    const [lo, hi] = wallBounds(f);
+    f.x = Math.max(lo, Math.min(hi, f.x));
     if (!f.airborne) f.airJumps = 1;
     if (f.anim.ragdoll instanceof RapierRagdoll) {
       // the winner's bones are solid to the falling body
@@ -808,7 +824,8 @@ export class NotebookSim {
       const s = Math.sign(vic.x - att.x) || 1;
       const need = this.bodyFront(att, s) + this.bodyFront(vic, -s) + BODY_TOUCH - Math.abs(vic.x - att.x);
       if (need <= 0) continue;
-      const room = s > 0 ? att.x + STAGE : STAGE - att.x;
+      const [lo, hi] = wallBounds(att);
+      const room = s > 0 ? att.x - lo : hi - att.x;
       const back = Math.min(need, Math.max(0, room));
       att.x -= s * back;
       vic.x += s * (need - back);
@@ -1182,7 +1199,7 @@ export class NotebookSim {
     vic.blocking = vic.crouching = false;
     // impulse in the victim's local frame: away from the attacker, and up
     const away = (vic.x - att.x) * vic.facing >= 0 ? 1 : -1;
-    vic.anim.walls = [(-STAGE - 0.3 - vic.x) * vic.facing, (STAGE + 0.3 - vic.x) * vic.facing];
+    vic.anim.walls = [(-WALL_X - vic.x) * vic.facing, (WALL_X - vic.x) * vic.facing];
     vic.anim.knockout({ x: away * (0.9 + kb * 0.5), y: 1.1 }, SIM_DT * this.pace);
     vic.vx = 0;
     this.impact += 0.6;

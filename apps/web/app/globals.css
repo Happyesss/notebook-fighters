@@ -1092,3 +1092,138 @@ html[data-input="touch"] .keys-legend { display: none !important; }
 .online-busy-actions a.big-btn + a.big-btn { background: #fffaf1; color: #2a241c; border-color: #2a241c; }
 .online-busy-actions button { min-height: 2.2rem; }
 .home-slots { -webkit-user-select: none; user-select: none; }
+
+/* ---- play nearby (no internet): QR pairing over a hotspot, offline hint */
+.nearby .lobby { max-height: calc(100dvh - 1rem); overflow: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.nearby .lobby h1 { margin-bottom: 0.1rem; }
+.nearby-sub { margin: 0 0 0.3rem; font-size: 1.1rem; color: #5b5346; }
+.hotspot-hint { margin: 0.4rem 0; padding: 0.35rem 0.6rem; border: 1.5px dashed #1d4f89; border-radius: 10px; color: #1d4f89; font-size: 1.15rem; background: #f3f6fb; }
+.nearby-actions .big-btn.alt, .lobby .big-btn.alt { background: #1d4f89; border-color: #1d4f89; color: #fffaf1; }
+.nearby-step { display: flex; flex-direction: column; align-items: flex-start; gap: 0.45rem; }
+.nearby-say { margin: 0.2rem 0 0; font-size: 1.15rem; }
+.qr-code { width: min(19rem, 72vw, 52dvh); height: auto; aspect-ratio: 1; image-rendering: pixelated; border: 2px solid #2a241c; border-radius: 10px; background: #fff; align-self: center; }
+.qr-scanner { position: relative; width: min(19rem, 80vw, 50dvh); aspect-ratio: 1; align-self: center; border: 2px solid #2a241c; border-radius: 12px; overflow: hidden; background: #2a241c; }
+.qr-scanner video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.qr-frame { position: absolute; inset: 14%; border: 3px solid rgba(255, 250, 241, 0.9); border-radius: 12px; box-shadow: 0 0 0 999px rgba(42, 36, 28, 0.25); pointer-events: none; }
+.qr-scanner-note { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 0.3rem 0.5rem; background: rgba(255, 250, 241, 0.92); font-size: 1rem; text-align: center; }
+.qr-scanner[data-state="denied"], .qr-scanner[data-state="none"] { aspect-ratio: auto; min-height: 6rem; }
+.nearby-code, .nearby-paste { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; width: 100%; font-size: 1rem; }
+.nearby-code label, .nearby-paste label { flex: 1 1 100%; color: #5b5346; }
+.nearby-code textarea, .nearby-paste textarea {
+  flex: 1 1 14rem; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.75rem; line-height: 1.25;
+  border: 1.5px solid #2a241c; border-radius: 8px; padding: 0.3rem; background: #fffdf8; resize: vertical; word-break: break-all;
+  user-select: text; -webkit-user-select: text; touch-action: auto;
+}
+.lost-box { margin: 0.6rem 0; padding: 0.6rem 0.7rem; border: 2px solid #c23b32; border-radius: 12px; background: #fffaf1; }
+.lost-box p { margin: 0 0 0.5rem; font-size: 1.2rem; }
+.lost-box .big-btn { text-decoration: none; display: inline-block; padding: 0.15rem 0.8rem; border-radius: 8px; }
+.offline-hint { margin: 0.3rem 0 0; font-size: 0.98rem; color: #5b5346; display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; }
+.offline-hint[data-ready="true"] .offline-state { color: #2f7d4a; }
+.offline-hint .install-btn { font: inherit; font-size: 1rem; border: 1.5px solid #1d4f89; color: #1d4f89; background: #fffaf1; border-radius: 8px; padding: 0.05rem 0.6rem; cursor: pointer; min-height: 2rem; }
+.home-offline { margin: 0.6rem 0 0.2rem; }
+.join-link.nearby-link { color: #1d4f89; }
+.home-nearby-sub { font-size: 0.85em; color: #5b5346; }
+.nearby-link-row { margin: 0.2rem 0 0.6rem; font-size: 1.1rem; }
+.nearby-link-row a { color: #1d4f89; }
+.home-links { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.join-link .when-narrow, .slot-pick .when-narrow { display: none; }
+
+/* ---------------------------------------------------------------- home on phones and small tablets: thumb-sized, nothing under the notch */
+.notebook {
+  padding-top: max(4vh, calc(env(safe-area-inset-top) + 0.6rem));
+  padding-right: max(1.25rem, calc(env(safe-area-inset-right) + 0.6rem));
+  padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+  padding-left: max(4.4rem, calc(env(safe-area-inset-left) + 1rem));
+}
+.kicker { font-size: 0.82rem; }
+.slot-badge { font-size: 0.82rem; }
+.rival-blurb { font-size: 0.84rem; }
+/* the in-box tools stay small (the drawing starts below them) but catch a thumb-sized touch */
+.slot-tools button { position: relative; }
+/* (it grows up into the box's edge and sideways, never down into the paper: a stroke may start just below) */
+.slot-tools button::after { content: ""; position: absolute; inset: -9px -2px 0; }
+.slot-tools .slot-clear::after, .slot-tools button:last-child::after { right: -5px; }
+/* dialogs: the ✕ stays in reach while the content scrolls */
+.dlg-x { position: sticky; top: 0; float: right; z-index: 3; margin: -0.55rem -0.6rem 0 0.4rem; width: 2.75rem; height: 2.75rem; }
+.dlg-title { margin-right: 0; }
+.draw-first-x { min-width: 2.75rem; min-height: 2.75rem; }
+.draw-first .play-link { min-height: 2.75rem; }
+.draw-first .text-btn { min-height: 2.75rem; }
+
+@media (pointer: coarse) {
+  .pencils { gap: 0.4rem; }
+  .pencil { width: 2.15rem; height: 2.15rem; position: relative; }
+  .pencil::after { content: ""; position: absolute; inset: -5px -3px; border-radius: 50%; }
+  .slot-foot button { min-height: 2.75rem; min-width: 2.75rem; }
+  .lvl-pick button { min-height: 2.75rem; }
+  .home-links .join-link { display: inline-flex; align-items: center; gap: 0.3em; min-height: 2.75rem; }
+  .home-links .join-link > span { line-height: 1.1; }
+  .home-links .nearby-link { align-items: baseline; padding-top: 0.75rem; min-height: 2.75rem; box-sizing: border-box; }
+  .pick-info { width: 2.3rem; height: 2.3rem; }
+  .pick-info::after { content: ""; position: absolute; inset: -6px; }
+}
+
+@media (max-width: 640px) {
+  .notebook {
+    padding-top: max(2.5vh, calc(env(safe-area-inset-top) + 0.5rem));
+    padding-right: max(0.8rem, calc(env(safe-area-inset-right) + 0.5rem));
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+    padding-left: max(1.6rem, calc(env(safe-area-inset-left) + 0.6rem));
+  }
+  .home-nav { margin-left: 0; width: 100%; }
+  /* the three ways to play: "Play with computer" across the top, then 2 players | Create a room */
+  .home-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+  .home-actions .play-link { min-height: 3rem; font-size: 1.2rem; padding: 0.3rem 0.4rem; line-height: 1.05; }
+  .home-actions .play-link:first-child { grid-column: 1 / -1; }
+  /* join + nearby: two thumb-sized chips side by side */
+  .home-links { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; align-items: stretch; }
+  .home-links .join-link {
+    display: flex; align-items: center; justify-content: center; text-align: center; min-height: 2.75rem; padding: 0.2rem 0.4rem; line-height: 1.1;
+    font-size: 1.05rem; text-decoration: none; border: 1.5px dashed rgba(138, 90, 50, 0.6); border-radius: 10px; background: rgba(255, 250, 241, 0.6);
+  }
+  .home-links .nearby-link { border-color: rgba(29, 79, 137, 0.55); }
+  .join-link .when-wide { display: none; }
+  .join-link .when-narrow { display: inline; }
+  .slot-pick .when-wide { display: none; }
+  .slot-pick .when-narrow { display: inline; }
+  .home-links .nearby-link { flex-direction: column; align-items: center; gap: 0; padding-top: 0.2rem; }
+  .home-nearby-sub { font-size: 0.82em; opacity: 0.85; }
+  .pitch { margin: 0.5rem 0 0.55rem; }
+  .pencils { display: grid; grid-template-columns: repeat(8, minmax(0, 2.4rem)); justify-content: space-between; max-width: 24rem; gap: 0.25rem; }
+  .pencil { width: 100%; height: auto; aspect-ratio: 1; max-width: 2.4rem; }
+  /* chips under a box: "playing" takes what's left, P2 and delete stay square */
+  .slot-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.25rem; }
+  .slot-foot .slot-pick.p1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 0.3rem; }
+  .slot-foot .slot-del { margin-left: 0; }
+  .slot-stats { font-size: 0.85rem; }
+  .rival-name { font-size: 1.1rem; }
+  .rival-card { padding: 0.35rem 0.2rem 0.4rem; }
+  .draw-first { left: max(0.6rem, env(safe-area-inset-left)); right: max(0.6rem, env(safe-area-inset-right)); width: auto; transform: none; font-size: 1.1rem; }
+  .draw-first > span { flex: 1 1 100%; }
+  .draw-first .play-link { flex: 1 1 auto; text-align: center; }
+  .dlg { padding: 0.8rem 0.75rem 0.7rem; }
+  .cc-head { gap: 0.6rem; }
+  .cc-stats .stat-row { grid-template-columns: 4rem 1fr 4.8rem; font-size: 0.92rem; }
+  .cc-note { font-size: 0.82rem; }
+  .pick-tier, .pick-stats { font-size: 0.8rem; }
+}
+/* very narrow phones (320 px): the chips shrink a little rather than wrap */
+@media (max-width: 350px) {
+  .home-actions .play-link { font-size: 1.1rem; }
+  .home-links .join-link { font-size: 0.98rem; }
+  .slot-foot button { font-size: 0.82rem; }
+}
+/* phones in landscape: a short header (title and buttons on one row) so the boxes start on the first screen */
+@media (max-height: 500px) and (min-width: 641px) {
+  .notebook { padding-top: max(0.6rem, calc(env(safe-area-inset-top) + 0.4rem)); }
+  .home-head { flex-wrap: nowrap; align-items: center; gap: 0.8rem; }
+  .home-head .kicker { margin-bottom: 0.1rem; }
+  .home-head h1 { font-size: 2.15rem; white-space: nowrap; }
+  .home-nav { gap: 0.25rem; margin-bottom: 0; }
+  .home-actions { flex-wrap: nowrap; gap: 0.4rem; }
+  .home-actions .play-link { font-size: 1.02rem; padding: 0.25rem 0.6rem; white-space: nowrap; box-shadow: 2px 2px 0 #2a241c; }
+  .home-actions .play-link.alt { box-shadow: 2px 2px 0 #1d4f89; }
+  .home-links { flex-direction: row; gap: 0.9rem; }
+  .pitch { font-size: 1.05rem; margin: 0.15rem 0 0.3rem; max-width: none; }
+  .pencils { margin: 0 0 0.45rem; }
+}

@@ -1,7 +1,7 @@
 // Online over the free plan's limits: when POST /api/rooms or the room WebSocket fails (429 / 503 /
 // Cloudflare's 1027 "exceeded" page, an overloaded Durable Object, no network), the online page and the
 // Create room flow say "Online is busy right now. Play the computer or a friend on this device." with
-// Play with computer, Local 2-player and Try again, and that is NOT the "No room with that code" (4404)
+// Play with computer, Local 2-player, Play nearby and Try again, and that is NOT the "No room with that code" (4404)
 // answer. Simulated with page.route / routeWebSocket against the Worker (pnpm worker:dev on :8787).
 //   BASE=http://localhost:8787 OUT=shots node busy.mjs
 import { chromium, devices } from "playwright";
@@ -47,7 +47,7 @@ for (const dev of ["Desktop", "iPhone 13"]) {
     const btns = await p.locator('[data-testid="online-busy"] a, [data-testid="online-busy"] button').allInnerTexts();
     const err = await p.getByTestId("lobby-error").isVisible().catch(() => false);
     await p.screenshot({ path: `${OUT}/online_busy_${dev.replace(/ /g, "_")}.png` });
-    check(t.includes(MSG) && btns.join("|") === "Play with computer|Local 2-player|Try again" && !err && posts === 1, `${dev}: Create a room → 503 {error:"busy"} → "${t.split("\n")[0]}" [${btns.join(" | ")}]`);
+    check(t.includes(MSG) && btns.join("|") === "Play with computer|Local 2-player|Play nearby|Try again" && !err && posts === 1, `${dev}: Create a room → 503 {error:"busy"} → "${t.split("\n")[0]}" [${btns.join(" | ")}]`);
     // Try again once the server is back → a real room
     await p.unroute("**/api/rooms");
     await p.getByTestId("busy-retry").click();

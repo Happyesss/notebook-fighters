@@ -29,12 +29,18 @@ importers:
       '@nf/sim':
         specifier: workspace:*
         version: link:../../packages/sim
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
       next:
         specifier: ^16.4.0
         version: 16.4.0(@types/node@24.19.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       pixi.js:
         specifier: ^8.22.0
         version: 8.22.0
+      qrcode-generator:
+        specifier: ^2.0.4
+        version: 2.0.4
       react:
         specifier: ^19.2.0
         version: 19.3.0
@@ -668,6 +674,9 @@ packages:
   js-binary-schema-parser@2.0.3:
     resolution: {integrity: sha512-xezGJmOb4lk/M1ZZLTR/jaBHQ4gG/lqQnJqdIv4721DMggsa1bDVlHXNeHYogaIEHD9vCRv0fcL4hMA+Coarkg==}
 
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
+
   kleur@4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
@@ -720,6 +729,9 @@ packages:
   postcss@8.5.23:
     resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
     engines: {node: ^10 || ^12 || >=14}
+
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
 
   react-dom@19.3.0:
     resolution: {integrity: sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==}
@@ -1225,6 +1237,8 @@ snapshots:
 
   js-binary-schema-parser@2.0.3: {}
 
+  jsqr@1.4.0: {}
+
   kleur@4.1.5: {}
 
   miniflare@5.20261006.1-alpha:
@@ -1293,6 +1307,8 @@ snapshots:
       nanoid: 3.3.20
       picocolors: 1.1.1
       source-map-js: 1.2.2
+
+  qrcode-generator@2.0.4: {}
 
   react-dom@19.3.0(react@19.3.0):
     dependencies:

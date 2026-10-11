@@ -15,7 +15,7 @@
     "@nf/shared": "workspace:*"
   },
   "scripts": {
-    "test": "tsx test/rig.ts && tsx test/shapes.ts && tsx test/recognize.ts && tsx test/duel.ts && tsx test/ko.ts && tsx test/powers.ts && tsx test/specials.ts && tsx test/stats.ts && tsx test/edge.ts && tsx test/reach.ts && tsx test/versus.ts && tsx test/scribble.ts && tsx test/rivalcheck.ts && tsx test/rapier.ts && tsx test/roster.ts",
+    "test": "tsx test/rig.ts && tsx test/shapes.ts && tsx test/recognize.ts && tsx test/duel.ts && tsx test/ko.ts && tsx test/powers.ts && tsx test/specials.ts && tsx test/stats.ts && tsx test/edge.ts && tsx test/reach.ts && tsx test/versus.ts && tsx test/scribble.ts && tsx test/rivalcheck.ts && tsx test/rapier.ts && tsx test/roster.ts && tsx test/nearby.ts",
     "test:rig": "tsx test/rig.ts",
     "test:shapes": "tsx test/shapes.ts",
     "test:recognize": "tsx test/recognize.ts",
@@ -31,6 +31,7 @@
     "test:rivalcheck": "tsx test/rivalcheck.ts",
     "test:rapier": "tsx test/rapier.ts",
     "test:roster": "tsx test/roster.ts",
-    "balance": "tsx test/bot.ts"
+    "balance": "tsx test/bot.ts",
+    "test:nearby": "tsx test/nearby.ts"
   }
 }

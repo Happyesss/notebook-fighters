@@ -150,7 +150,8 @@ export class OnlineSession {
     if (this.lock) {
       if (t - this.lastPing >= 1000) {
         this.lastPing = t;
-        this.defer("ping", () => ({ t: this.now() }));
+        // the last round trip rides along too (a nearby host room shows it as its own ping)
+        this.defer("ping", () => ({ t: this.now(), r: this.measured ? this.rtt : undefined }));
       }
     } else if (!this.start && this.lobby?.seats[0] && this.lobby.seats[1]) {
       // both seated: measure the round trip; each ping reports the last one so the room can pick the delay

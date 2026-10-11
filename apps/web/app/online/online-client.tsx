@@ -8,23 +8,17 @@
  * ?lag=100&jitter=30 simulates a slow link (extra round trip in ms, ± per message)
  * ?autoplay=SEED lets a scripted fighter play for you (tests, demos)
  */
-import { BUSY_MESSAGE as BUSY_TEXT, SIM_DT, isRoomCode, type AskMsg, type InkStroke, type LobbyMsg, type PlayerInput } from "@nf/shared";
-import type { NotebookView } from "@nf/render";
-import type { FxEvent, NetRoom, OnlineSession } from "@nf/sim";
+import { BUSY_MESSAGE as BUSY_TEXT, isRoomCode, type AskMsg, type InkStroke, type LobbyMsg } from "@nf/shared";
+import type { NetRoom, OnlineSession } from "@nf/sim";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { KEYS_1P, bannerFor, makeReader, paintMeter } from "../play/controls";
-import { makePads } from "../play/gamepad";
-import { TouchPad } from "../play/touchpad";
-import { watchInputMode } from "../play/input-mode";
-import { fitArena } from "../play/arena";
-import { Sfx } from "../play/sfx";
-import { chosePixi, pickPhysics, pickRenderer } from "../play/renderer-pref";
+import { pickPhysics } from "../play/renderer-pref";
 import { RotateButton } from "../play/rotate";
 import { adoptFighter, myFighter } from "../fighters";
 import { PENCILS, hasInk, type Stroke } from "../ink";
 import { RivalThumb } from "../rivals";
 import { SketchModal } from "../sketch-modal";
+import { DuelOverlay, copyText, startDuel, useDuelHud, type DuelRun } from "./duel";
 
 type Phase = "menu" | "connecting" | "lobby" | "fight" | "error";
 
@@ -39,25 +33,8 @@ function serverUrl(params: URLSearchParams) {
   return window.location.origin;
 }
 
-/** the same scripted fighter the headless test uses (seeded, so a run can be repeated) */
-function scriptedFighter(seed: number) {
-  let s = seed >>> 0 || 1;
-  const r = () => (s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 2 ** 32;
-  const idle: PlayerInput = { x: 0, punch: false, kick: false, jump: false, block: false, crouch: false, special: false };
-  return (session: OnlineSession): PlayerInput => {
-    const sim = session.sim;
-    if (!sim) return idle;
-    const me = session.seat;
-    const self = sim.fighters[me];
-    const foe = sim.fighters[1 - me];
-    const toward = foe.x > self.x ? 1 : -1;
-    const v = r();
-    return { ...idle, x: v < 0.55 ? toward : v < 0.62 ? -toward : 0, punch: r() < 0.12, kick: r() < 0.08, jump: r() < 0.01, block: r() < 0.01, special: r() < 0.02 };
-  };
-}
-
 export default function OnlineClient() {
-  const hostRef = useRef<HTMLDivElement>(null);
+  const hud = useDuelHud();
   const [phase, setPhase] = useState<Phase>("menu");
   const [error, setError] = useState<string | null>(null);
   /** the free-plan server is over its limits (or unreachable): what to retry */
@@ -91,165 +68,35 @@ export default function OnlineClient() {
     decline: () => {},
     drawn: () => {},
   });
-  const netRef = useRef<HTMLSpanElement>(null);
-  const fills = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
-  const nums = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
-  const meters = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
-  const bannerRef = useRef<HTMLDivElement>(null);
-  const roundRef = useRef<HTMLSpanElement>(null);
-  const keysRef = useRef(new Set<string>());
-  const tapsRef = useRef(new Set<string>());
   const [names, setNames] = useState<[string, string]>(["P1", "P2"]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const keys = keysRef.current;
-    const taps = tapsRef.current;
     let stop = false;
-    let raf = 0;
     let session: OnlineSession | null = null;
     let room: NetRoom | null = null;
     const base = serverUrl(params);
-    let view: NotebookView | null = null;
-    let unfit = () => {};
-    let mounting = false;
     let leaving = false;
     let reconnecting = false;
     let NetRoomCls: typeof NetRoom | null = null;
     let FINAL: Set<number> = new Set([4000]);
     const lag = Number(params.get("lag") ?? 0);
     const jitter = Number(params.get("jitter") ?? 0);
-    const auto = params.get("autoplay");
-    const brain = auto ? scriptedFighter(Number(auto) || 1) : null;
-    const reader = makeReader(KEYS_1P);
-    // a game controller (Gamepad API) plays like the keyboard
-    const pads = makePads();
-    const sfx = new Sfx();
-    const unlock = () => sfx.unlock();
-    const net = { reconnects: 0, rebuilt: false, viewFps: 0, frames: 0 };
-
-    const onKey = (e: KeyboardEvent, down: boolean) => {
-      if (e.target instanceof HTMLInputElement) return;
-      const k = e.key.toLowerCase();
-      if (e.code === "Space" || k.startsWith("arrow")) e.preventDefault();
-      if (down) {
-        keys.add(k);
-        if (!e.repeat) taps.add(k);
-      } else keys.delete(k);
-    };
-    const kd = (e: KeyboardEvent) => onKey(e, true);
-    const ku = (e: KeyboardEvent) => onKey(e, false);
-    window.addEventListener("keydown", kd);
-    window.addEventListener("keyup", ku);
-    window.addEventListener("pointerdown", unlock);
-    const unwatchInput = watchInputMode();
-    window.addEventListener("keydown", unlock);
+    const net = { reconnects: 0, rebuilt: false };
+    const duel: DuelRun = startDuel({
+      hud,
+      params,
+      lag,
+      jitter,
+      getSession: () => session,
+      onFight: (n) => {
+        setNames(n);
+        setPhase("fight");
+      },
+    });
 
     // your fighter: the one selected on the notebook page (a room needs a drawing: see needDraw)
     let drawing: InkStroke[] | null = myFighter();
-
-    const hud = () => {
-      const sim = session?.sim;
-      const lock = session?.lock;
-      if (!sim || !lock || !session) return;
-      const st = sim.curr;
-      const hp = [st.playerHp, st.bagHp];
-      const max = [st.playerMax, st.bagMax];
-      for (let i = 0; i < 2; i++) {
-        const el = fills[i].current;
-        if (el) el.style.transform = `scaleX(${Math.max(0, hp[i]) / max[i]})`;
-        const n = nums[i].current;
-        if (n) n.textContent = String(Math.ceil(Math.max(0, hp[i])));
-        paintMeter(meters[i].current, st.fighters[i]);
-      }
-      const b = bannerFor(st, true);
-      const nm = session.start?.names ?? ["P1", "P2"];
-      const you = session.seat;
-      const who = (i: number | null) => (i === you ? "You win" : i === null ? "Double K.O." : `${nm[i]} wins`);
-      let text = b.text;
-      let sub = b.sub;
-      if (st.over) {
-        text = st.matchWinner !== null ? (st.matchWinner === you ? "You win the match!" : `${nm[st.matchWinner]} wins the match`) : `K.O.! ${who(st.winner)} round ${st.round}`;
-        sub = `${st.wins[0]}–${st.wins[1]} · ${st.matchWinner !== null ? "new match in 5 s" : `round ${st.round + 1} in 3 s`}`;
-      }
-      const el = bannerRef.current;
-      if (el && el.dataset.text !== text + sub) {
-        el.dataset.text = text + sub;
-        el.dataset.kind = st.over ? (st.matchWinner !== null ? "match" : "ko") : b.kind;
-        (el.firstChild as HTMLElement).textContent = text;
-        (el.lastChild as HTMLElement).textContent = sub;
-      }
-      if (roundRef.current) {
-        const r = `Round ${st.round} · ${st.wins[0]}–${st.wins[1]} · best of 3`;
-        if (roundRef.current.textContent !== r) roundRef.current.textContent = r;
-      }
-      const checked = [...lock.sums.keys()].filter((f) => lock.remoteSums.has(f)).length;
-      const sync = lock.desyncs.length || session.serverDesyncs.length ? `DESYNC at frame ${lock.desyncs[0] ?? session.serverDesyncs[0]?.f}` : `in sync ✓ ${checked} checks`;
-      const t = `ping ${session.rtt} ms · input delay ${lock.delay}f (${Math.round((lock.delay * 1000) / 60)} ms) · frame ${lock.frame}${lock.stalledNow ? " · waiting" : ""} · ${sync}${lag || jitter ? ` · sim lag ${lag}±${jitter}` : ""}`;
-      const ne = netRef.current;
-      if (ne && ne.textContent !== t) {
-        ne.textContent = t;
-        ne.dataset.sync = lock.desyncs.length ? "bad" : "ok";
-      }
-    };
-
-    const ensureView = async () => {
-      if (view || mounting || !session?.lock || !hostRef.current) return;
-      mounting = true;
-      const { mountView } = await import("@nf/render");
-      if (stop || !hostRef.current) return;
-      view = await mountView(hostRef.current, pickRenderer(params), { allowSoftware: chosePixi(params) });
-      unfit = fitArena(view);
-      view.labels = session.seat === 0 ? ["YOU", session.start?.names[1] || "P2"] : [session.start?.names[0] || "P1", "YOU"];
-      setNames(session.seat === 0 ? ["You", session.start?.names[1] || "Friend"] : [session.start?.names[0] || "Friend", "You"]);
-      setPhase("fight");
-      mounting = false;
-    };
-
-    let acc = 0;
-    let last = performance.now();
-    let fpsT = last;
-    let fpsN = 0;
-    const loop = (now: number) => {
-      if (stop) return;
-      raf = requestAnimationFrame(loop);
-      const real = Math.min(0.25, (now - last) / 1000);
-      last = now;
-      if (!session?.lock) return;
-      if (!view) {
-        void ensureView();
-        return;
-      }
-      acc += real;
-      pads.poll(keys, taps, [KEYS_1P]);
-      const events: FxEvent[] = [];
-      let impact = 0;
-      let n = 0;
-      while (acc >= SIM_DT && n < 5) {
-        acc -= SIM_DT;
-        n++;
-        const input = brain ? brain(session) : reader.read(keys, taps);
-        const r = session.tick(input);
-        if (r.sampled) {
-          reader.used();
-          taps.clear();
-        }
-        events.push(...r.events);
-        impact += r.impact;
-      }
-      if (n >= 5) acc = 0;
-      const sim = session.sim!;
-      view.draw(sim.curr, sim.prev, session.lock.stalledNow ? 1 : Math.min(1, acc / SIM_DT), events, impact);
-      sfx.play(events);
-      hud();
-      fpsN++;
-      if (now - fpsT > 1000) {
-        net.viewFps = Math.round((fpsN * 1000) / (now - fpsT));
-        fpsT = now;
-        fpsN = 0;
-      }
-    };
-    raf = requestAnimationFrame(loop);
 
     const saveToken = () => {
       if (!room) return;
@@ -432,14 +279,14 @@ export default function OnlineClient() {
         return session?.sim ?? null;
       },
       get view() {
-        return view;
+        return duel.view;
       },
       get room() {
         return room;
       },
-      net,
-      sfx,
-      keys,
+      net: Object.assign(net, duel.stats),
+      sfx: duel.sfx,
+      keys: hud.keys.current,
       /** pull the cable: close the socket without leaving (the server holds the seat) */
       drop() {
         room?.drop();
@@ -451,17 +298,9 @@ export default function OnlineClient() {
       clearTimeout(autoConnect);
       stop = true;
       leaving = true;
-      cancelAnimationFrame(raf);
-      window.removeEventListener("keydown", kd);
-      window.removeEventListener("keyup", ku);
-      window.removeEventListener("pointerdown", unlock);
-      unwatchInput();
-      window.removeEventListener("keydown", unlock);
+      duel.stop();
       room?.leave();
       session?.dispose();
-      view?.destroy();
-      unfit();
-      void sfx.ctx?.close().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -470,7 +309,7 @@ export default function OnlineClient() {
 
   return (
     <main className="stage online" data-phase={phase} data-testid="online">
-      <div className="canvas-host" ref={hostRef} />
+      <div className="canvas-host" ref={hud.host} />
       {phase !== "fight" && (
         <section className="lobby" data-testid="lobby">
           <h1>Online duel</h1>
@@ -500,6 +339,9 @@ export default function OnlineClient() {
                 <a className="big-btn" href="/?play=2p" data-testid="busy-2p">
                   Local 2-player
                 </a>
+                <a className="big-btn alt" href="/nearby" data-testid="busy-nearby">
+                  Play nearby
+                </a>
                 <button type="button" data-testid="busy-retry" onClick={() => actions.current.retry()}>
                   Try again
                 </button>
@@ -517,6 +359,13 @@ export default function OnlineClient() {
                 Join
               </button>
             </div>
+          )}
+          {(phase === "menu" || phase === "error") && !needDraw && (
+            <p className="nearby-link-row">
+              <a href="/nearby" data-testid="nearby-link">
+                📶 No internet? Play nearby: one hotspot, two QR codes →
+              </a>
+            </p>
           )}
           {phase === "connecting" && <p>Connecting to the game server…</p>}
           {error && <p className="lobby-error" data-testid="lobby-error">{error}</p>}
@@ -605,91 +454,8 @@ export default function OnlineClient() {
         />
       )}
       <RotateButton />
-      <div className="banner" ref={bannerRef} data-testid="banner" data-kind="">
-        <p className="banner-text" />
-        <p className="banner-sub" />
-      </div>
       {peerNote && <p className="peer-note" data-testid="peer-note">{peerNote}</p>}
-      <div className="overlay" hidden={phase !== "fight"}>
-        <div className="topbar">
-          <Link className="back" href="/">
-            ← notebook
-          </Link>
-          <div className="bars" aria-label="Health">
-            {[0, 1].map((i) => (
-              <div key={i}>
-                <div className="bar-label">
-                  <span>{names[i]}</span>
-                  <span ref={nums[i]}>100</span>
-                </div>
-                <div className="track">
-                  <div className={i ? "fill bag" : "fill"} ref={fills[i]} />
-                </div>
-                <div className="meter" ref={meters[i]} data-testid={`meter-${i}`} data-state="none">
-                  <span className="meter-fill" />
-                  <span className="meter-label" />
-                </div>
-              </div>
-            ))}
-            <div className="round-row">
-              <span ref={roundRef} data-testid="round">Round 1 · 0–0 · best of 3</span>
-              <span className="levels">online · room {code}</span>
-            </div>
-          </div>
-        </div>
-        <div />
-        <div className="bottombar">
-          <p className="hint">
-            <span className="net-hud" ref={netRef} data-testid="net-hud" data-sync="ok" />
-            <span className="keys-legend" data-testid="keys-legend">
-              <br />
-              <kbd>A</kbd> <kbd>D</kbd> walk · <kbd>F</kbd> punch · <kbd>G</kbd> kick · <kbd>Space</kbd> jump · <kbd>H</kbd> block · <kbd>S</kbd> crouch · <kbd>E</kbd> special
-            </span>
-          </p>
-          <TouchPad map={KEYS_1P} keys={keysRef} taps={tapsRef} punch="Punch" kick="Kick" />
-        </div>
-      </div>
+      <DuelOverlay hud={hud} names={names} hidden={phase !== "fight"} tag={`online · room ${code}`} />
     </main>
   );
-}
-
-/**
- * Copies text: the async Clipboard API first, then the old execCommand("copy") on a hidden
- * textarea (http pages, older browsers, embedded webviews). If both fail, the text in the page
- * (element `selectId`) is selected so the player can copy it by hand; returns false then.
- */
-async function copyText(text: string, selectId: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // denied or unavailable: try the fallback
-  }
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.top = "-1000px";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    ta.setSelectionRange(0, text.length);
-    const ok = document.execCommand("copy");
-    ta.remove();
-    if (ok) return true;
-  } catch {
-    // fall through
-  }
-  const el = document.getElementById(selectId);
-  if (el) {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-  }
-  return false;
 }

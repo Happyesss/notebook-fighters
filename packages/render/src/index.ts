@@ -5,7 +5,7 @@
  */
 import type { Pt } from "@nf/shared";
 import type { PixiCtx } from "./pixi-ctx";
-import { J, headCenterOf, isAttack, skinStrokes, type Deform, type FxEvent, type Joints, type Rig, type SimState } from "@nf/sim";
+import { J, WALL_X, headCenterOf, isAttack, skinStrokes, type Deform, type FxEvent, type Joints, type Rig, type SimState } from "@nf/sim";
 
 // ---------------------------------------------------------------- fighter drawing (shared with the clan battle)
 export type DrawFighterOpts = {
@@ -107,6 +107,9 @@ type Particle = {
 
 const WORDS = ["POW!", "DHISHOOM!", "THWACK!", "BAM!", "DHISH!"];
 
+/** where the red margin line (the left wall) sits when the camera is against it: a fraction of the width */
+const MARGIN_AT = 0.07;
+
 export class NotebookView {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -120,6 +123,8 @@ export class NotebookView {
    * may take, and the side room (figure units) kept around the two fighters. Phones set their own.
    */
   layout = { ground: 0.8, fill: 0.36, margin: 2.6 };
+  /** the walls as last drawn (canvas px) and the camera: read by tests */
+  stage = { left: 0, right: 0, scale: 0, cx: 0, width: 0 };
   private start = performance.now();
   private trails: Pt[][] = [[], []];
   private koAt: (number | null)[] = [null, null];
@@ -274,7 +279,12 @@ export class NotebookView {
     const xs = curr.fighters.map((f) => f.x);
     const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
     const span = Math.max(...xs) - Math.min(...xs);
-    const targetScale = Math.min(H * this.layout.fill, W / (span + this.layout.margin));
+    // the stage is the sim's walls: the red margin line is the left wall, its mirror the right one. Zoomed
+    // out at most to show the whole stage with a notebook gutter on each side (no paper you can't walk to),
+    // unless that would make the figures too tall for the screen.
+    const gutter = W * MARGIN_AT;
+    const fit = Math.min((W - 2 * gutter) / (2 * WALL_X), H * Math.min(0.5, this.layout.fill * 1.3));
+    const targetScale = Math.max(fit, Math.min(H * this.layout.fill, W / (span + this.layout.margin)));
     if (this.cam.scale === 0) this.cam = { x: mid, scale: targetScale };
     const k = 1 - Math.exp(-dt * 4);
     this.cam.x += (mid - this.cam.x) * k;
@@ -289,12 +299,19 @@ export class NotebookView {
     const z = this.zoom.amt;
     this.lastZoom = z;
     const S = this.cam.scale * (1 + z);
-    const cx = this.cam.x + (this.zoom.x - this.cam.x) * Math.min(0.8, z * 3);
+    // never show more than the gutter past a wall; a stage narrower than the screen sits in the middle
+    const half = (W / 2 - gutter) / S;
+    const clampX = (x: number) => (half >= WALL_X ? 0 : Math.max(-WALL_X + half, Math.min(WALL_X - half, x)));
+    this.cam.x = clampX(this.cam.x);
+    const cx = clampX(this.cam.x + (this.zoom.x - this.cam.x) * Math.min(0.8, z * 3));
     const gy0 = ground + Math.min(H * 0.12, this.zoom.y * S * z * 1.2);
     const toScreen = (p: Pt): Pt => ({ x: W / 2 + (p.x - cx) * S + sx, y: gy0 - p.y * S + sy });
     for (const q of this.squash) q.t += dt;
 
-    this.paper(W, H, gy0 + sy, sx);
+    const wallL = toScreen({ x: -WALL_X, y: 0 }).x;
+    const wallR = toScreen({ x: WALL_X, y: 0 }).x;
+    this.stage = { left: wallL, right: wallR, scale: S, cx, width: W };
+    this.paper(W, H, gy0 + sy, wallL, wallR, S);
 
     for (const e of events) this.spawn(e, toScreen, S);
     this.powers(curr, prev, alpha, toScreen, S, now);
@@ -575,7 +592,7 @@ export class NotebookView {
     ctx.restore();
   }
 
-  private paper(W: number, H: number, ground: number, sx: number) {
+  private paper(W: number, H: number, ground: number, wallL: number, wallR: number, S: number) {
     const ctx = this.ctx;
     ctx.fillStyle = "#f6f0e2";
     ctx.fillRect(0, 0, W, H);
@@ -588,25 +605,33 @@ export class NotebookView {
       ctx.lineTo(W, y);
       ctx.stroke();
     }
-    ctx.strokeStyle = "rgba(212,83,74,0.55)";
-    ctx.lineWidth = Math.max(2, W * 0.002);
-    ctx.beginPath();
-    ctx.moveTo(W * 0.07, 0);
-    ctx.lineTo(W * 0.07, H);
-    ctx.stroke();
-    // ground: a pencil-ruled line with grass ticks
+    // the red margin line is the left wall; a fainter one marks the right wall
+    const lw = Math.max(2, W * 0.002);
+    ctx.lineWidth = lw;
+    for (const [x, a] of [[wallL, 0.55], [wallR, 0.3]] as const) {
+      if (x < -lw || x > W + lw) continue;
+      ctx.strokeStyle = `rgba(212,83,74,${a})`;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    // ground: a pencil-ruled line with grass ticks, from wall to wall (a little past, like a ruled pencil line)
+    const g0 = Math.max(-2, wallL - W * 0.03);
+    const g1 = Math.min(W + 2, wallR + W * 0.03);
     ctx.strokeStyle = "#2a241c";
     ctx.lineWidth = Math.max(1.5, W * 0.0018);
     ctx.beginPath();
-    ctx.moveTo(W * 0.04 + sx, ground);
-    ctx.lineTo(W * 0.96 + sx, ground);
+    ctx.moveTo(g0, ground);
+    ctx.lineTo(g1, ground);
     ctx.stroke();
     ctx.lineWidth = 1;
-    for (let i = 0; i < 40; i++) {
-      const x = W * (0.05 + i * 0.023) + sx;
+    const step = Math.max(W * 0.023, ((wallR - wallL) / 40) | 0) || W * 0.023;
+    for (let x = wallL + step * 0.5; x < wallR; x += step) {
+      if (x < -step || x > W) continue;
       ctx.beginPath();
       ctx.moveTo(x, ground);
-      ctx.lineTo(x + W * 0.004, ground - H * 0.012);
+      ctx.lineTo(x + Math.max(W * 0.004, S * 0.02), ground - H * 0.012);
       ctx.stroke();
     }
   }

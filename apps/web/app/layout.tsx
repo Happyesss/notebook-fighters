@@ -1,12 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { INPUT_MODE_SCRIPT } from "./play/input-mode";
+import { SwRegister } from "./offline";
 
 // Fonts load at runtime from Google Fonts (non-blocking). Builds no longer need network
 // access (next/font/google fails offline); the CSS variables fall back to local cursive/sans.
 export const metadata: Metadata = {
   title: "Notebook Fighters",
-  description: "Draw a fighter in the notebook and fight: the computer, a friend on the same device, or online.",
+  description: "Draw a fighter in the notebook and fight: the computer, a friend on the same device, online, or nearby with no internet.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Notebook Fighters",
+  appleWebApp: { capable: true, title: "Notebook Fighters", statusBarStyle: "default" },
 };
 
 // phones and tablets: no pinch / double-tap zoom while fighting, draw under the notch safely
@@ -33,7 +37,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Source+Sans+3:wght@400;600;700&display=swap"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <SwRegister />
+      </body>
     </html>
   );
 }

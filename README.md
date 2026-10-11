@@ -77,6 +77,13 @@ Two kids, one keyboard: P1 on WASD, P2 on the arrows — each with their own dra
 ### 🌐 Online rooms with deterministic lockstep
 **Create room → share the 6-letter code or `/r/CODE` link.** Each room is a [Cloudflare Durable Object](https://developers.cloudflare.com/durable-objects/) that relays inputs only; both browsers run the same deterministic sim (seeded CPU dice, deterministic Rapier build) with a small input delay, a checksum every second, and seat-holding reconnects (60 s) that rebuild from the input log. Inputs travel 2–4 frames per message, so a player sends ≈15–30 messages a second. Tested at 100 ± 30 ms of lag: **0 desyncs**.
 
+### 📶 Play nearby — no internet
+Two phones, one hotspot, two QR codes. One phone turns on its **hotspot** (mobile data not needed) and the other joins it; or both sit on any Wi-Fi, even one with no internet. On [`/nearby`](https://notebook-fighters.coollagers.workers.dev/nearby) the host taps **Create nearby room** and shows a QR, the friend taps **Join nearby** and scans it, then shows an answer QR that the host scans back. Each step also has a **copy / paste code** fallback.
+
+The phones talk over a direct **WebRTC data channel** with no server, not even the game's: no STUN or TURN, only the phones' addresses on the shared network. The host's phone runs the room itself (the same lobby, drawing exchange, Accept / Decline, input-delay pick from the measured round trip, checksums every second and desync check as an online room), and the fight is the same lockstep engine. If the link drops, both phones say **Connection lost** with Rematch / Back. Browsers can't do phone-to-phone Bluetooth, so the hotspot does that job.
+
+The site is also an **installable app that works offline**: after one visit a service worker keeps every page, script, sound and font, so the computer, 2-player and play nearby all work with no connection. The QR codes are drawn and read with bundled libraries ([qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator), [jsQR](https://github.com/cozmo/jsQR)), with no CDN. Camera scanning uses the browser's `BarcodeDetector` where it exists (Chrome on Android) and jsQR elsewhere (iPhone Safari, Firefox, desktop Chrome on Windows / Linux).
+
 ### 💥 Rapier ragdoll KOs + slow-mo replay
 Knockouts hand the rig to a **Rapier2D (deterministic)** ragdoll — the dog folds with legs splayed, the car rolls onto its roof. Hits **freeze** for a few frames by weight, the victim squashes, the camera punches in, the KO **auto-replays in slow motion**, and **Save clip** exports the last 5 s as WebM.
 
@@ -186,7 +193,7 @@ pnpm run deploy                                # next build → apps/web/out, th
 ```
 notebook-fighters/
 ├── apps/
-│   ├── web/             Next.js app: notebook (/), duel (/play), online (/online, /r/[code])
+│   ├── web/             Next.js app: notebook (/), duel (/play), online (/online, /r/[code]), play nearby (/nearby), service worker
 │   │   ├── app/play/      fight page, touch pads, gamepad, input-mode, layered SFX
 │   │   └── public/sfx/    52 Kenney CC0 sounds (.ogg + .m4a) + CREDITS.md
 │   └── worker/          the Cloudflare Worker: static assets + Room Durable Object + headless online test
@@ -225,15 +232,15 @@ The sim is pure TypeScript and fully deterministic (fixed step, seeded randomnes
 
 ```bash
 pnpm typecheck      # tsc --noEmit in every workspace package
-pnpm test           # 15 headless sim suites: rig, shapes, recognize, duel, ko, powers, specials,
-                    #   stats, edge, reach, versus, scribble, rivalcheck, rapier, roster
+pnpm test           # 16 headless sim suites: rig, shapes, recognize, duel, ko, powers, specials,
+                    #   stats, edge, reach, versus, scribble, rivalcheck, rapier, roster, nearby
 pnpm --filter @nf/sim test:duel     # …or any one suite
 pnpm --filter @nf/sim balance       # casual-human bot vs the CPU on every level (win-rate table)
 pnpm test:online    # headless 2-client lockstep against the Worker: lag, drop + reconnect, page reload
                     #   (needs pnpm worker:dev; BASE=https://… to test a deploy)
 ```
 
-Browser checks (Playwright, against a running `pnpm dev`; `online.mjs` against `pnpm worker:dev`) live in [`e2e/`](e2e/README.md): per-device controls, phone/tablet layouts, Fighter Card, powers, 2P, game feel, SFX timing and a two-browser online match.
+Browser checks (Playwright, against a running `pnpm dev`; `online.mjs` against `pnpm worker:dev`) live in [`e2e/`](e2e/README.md): per-device controls, phone/tablet layouts, Fighter Card, powers, 2P, game feel, SFX timing, a two-browser online match, and `nearby.mjs`: offline pages from the service worker, then two browsers pairing by paste and by camera-scanned QR with the server shut down, playing full matches with 0 desyncs.
 
 ✅ **Latest full regression: all green** — `tsc` ×5 packages, 15 sim suites, `next build`, and e2e controls, sfx, mobile ×6 devices, card, powers, twop, human, feel and online (log in [`docs/ITERATIONS.md`](docs/ITERATIONS.md)).
 
@@ -242,6 +249,7 @@ Browser checks (Playwright, against a running `pnpm dev`; `online.mjs` against `
 - **Balance outliers:** on Easy the car and snake win ≈99 %; on Hard lightning (≈40 %) and four-armed (≈37 %) are a bit strong, shield and spikes sit near the 15 % floor. The Hulk is the toughest rival (≈19 % bot wins on Normal).
 - **Reader edge cases:** a car drawn with its cabin dead-centre keeps its drawn direction; a tree fights as a big-headed figure; no sword parry yet.
 - **PixiJS renderer** is opt-in (`?renderer=pixi`) — on a GPU-less box it ran 36–52 fps vs a steady 60 for Canvas2D; needs measuring on real GPUs.
+- **Play nearby** is tested in headless Chromium over loopback, not yet on two real phones. Chrome hides a phone's address behind an mDNS `.local` name until the page has camera permission; that resolves on most hotspots, but a network that blocks multicast could stop the phones finding each other. The QR is dense (about 470 characters), so hold the phones close.
 - Online play adds a fixed input delay (≈0.17 s at 100 ms ping); rollback netcode would hide it.
 - Real-player playtests on phones; the "you drew fire, I draw water" back-and-forth from the [design plan](docs/notebook-fighters-plan.md).
 

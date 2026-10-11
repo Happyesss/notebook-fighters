@@ -8,6 +8,7 @@ import { MIN_STEP2, PENCILS, clamp01, hasInk, paintInk, type Pt, type Stroke } f
 import { SketchModal } from "./sketch-modal";
 import { MAX_FIGHTERS, emptyBook, loadBook, newId, saveBook, strokesOf, type FighterBook } from "./fighters";
 import { LEVELS, RivalCard, RivalPicker, RivalThumb } from "./rivals";
+import { OfflineHint } from "./offline";
 
 const RIVAL_KEY = "nf:rival";
 const LEVEL_KEY = "nf:level";
@@ -154,9 +155,15 @@ export function HomeClient() {
               Create a room
             </button>
           </div>
-          <a className="join-link" href="/online">
-            or join a friend&apos;s room with a code
-          </a>
+          <div className="home-links">
+            <a className="join-link" href="/online" data-testid="home-join">
+              <span className="when-wide">or join a friend&apos;s room with a code</span>
+              <span className="when-narrow">🔑 Join with a code</span>
+            </a>
+            <a className="join-link nearby-link" href="/nearby" data-testid="home-nearby" title="Two phones on one hotspot, paired with QR codes">
+              <span className="nearby-main">📶 Play nearby</span> <span className="home-nearby-sub">(no internet)</span>
+            </a>
+          </div>
         </nav>
       </header>
       <p className="pitch">Draw a person: head, body, arms and legs. Go over a part again to make it stronger. A neat, detailed drawing fights a little better.</p>
@@ -215,6 +222,9 @@ export function HomeClient() {
             {MAX_FIGHTERS} fighters is the most: delete one to draw another.
           </p>
         )}
+      </div>
+      <div className="home-offline">
+        <OfflineHint />
       </div>
       {big !== null && (
         <SketchModal
@@ -397,7 +407,14 @@ function Slot({
       </div>
       <div className="slot-foot">
         <button type="button" className="slot-pick p1" data-testid={`pick-p1-${index}`} aria-pressed={isP1} onClick={() => onPick("p1")} aria-label={`Play with fighter ${n}`}>
-          {isP1 ? "✓ playing" : "play this"}
+          {isP1 ? (
+            <>
+              <span className="when-wide">✓ playing</span>
+              <span className="when-narrow">✓ you</span>
+            </>
+          ) : (
+            "play this"
+          )}
         </button>
         <button type="button" className="slot-pick p2" data-testid={`pick-p2-${index}`} aria-pressed={isP2} onClick={() => onPick("p2")} aria-label={`Fighter ${n} for player 2`} title="Player 2's fighter in a 2-player duel">
           {isP2 ? "✓ P2" : "P2"}
