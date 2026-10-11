@@ -151,14 +151,16 @@ export function HomeClient() {
         </div>
         <nav className="home-nav" aria-label="Play">
           <div className="home-actions">
-            <button className="play-link" type="button" data-testid="fight-cpu" onClick={() => start("cpu")}>
-              Play with computer
+            <button className="play-link" type="button" data-testid="fight-cpu" onClick={() => start("cpu")} aria-label="Play with computer">
+              <span className="when-wide">Play with computer</span>
+              <span className="when-narrow">vs Computer</span>
             </button>
             <button className="play-link alt" type="button" data-testid="duel-2p" onClick={() => start("2p")} title="Two players on this device, each with their own drawing">
               2 players
             </button>
-            <button className="play-link room" type="button" data-testid="home-room" onClick={() => start("room")} title="Make a room code, send it to a friend, fight online">
-              Create a room
+            <button className="play-link room" type="button" data-testid="home-room" onClick={() => start("room")} title="Make a room code, send it to a friend, fight online" aria-label="Create a room">
+              <span className="when-wide">Create a room</span>
+              <span className="when-narrow">Create room</span>
             </button>
           </div>
           <div className="home-links">
@@ -168,6 +170,7 @@ export function HomeClient() {
             </a>
             <a className="join-link nearby-link" href="/nearby" data-testid="home-nearby" title="Two phones on one hotspot, paired with QR codes">
               <span className="nearby-main">📶 Play nearby</span> <span className="home-nearby-sub">(no internet)</span>
+              <span className="when-narrow">📶 Nearby · offline</span>
             </a>
           </div>
         </nav>

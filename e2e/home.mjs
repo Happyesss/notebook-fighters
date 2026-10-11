@@ -121,7 +121,7 @@ for (const dev of DEVICES) {
   const btnsAbove = [cpu, two, room].every((r) => r.y + r.height <= s0.y);
   const rightSide = phonePortrait ? nav.x + nav.width >= vp.width * 0.9 : nav.x + nav.width >= vp.width * 0.7 && nav.x >= h1.x + h1.width * 0.5;
   const hint = await p.evaluate(() => /both players draw first/i.test(document.body.innerText));
-  check(btnsAbove && rightSide && !hint && labels.join("|") === "Play with computer|2 players|Create a room", `${dev}: top-right buttons [${labels.join(" | ")}] beside the heading (nav right edge ${Math.round(nav.x + nav.width)}/${vp.width}); no "both players draw first" hint`);
+  check(btnsAbove && rightSide && !hint && labels.join("|") === (vp.width <= 640 ? "vs Computer|2 players|Create room" : "Play with computer|2 players|Create a room"), `${dev}: top-right buttons [${labels.join(" | ")}] beside the heading (nav right edge ${Math.round(nav.x + nav.width)}/${vp.width}); no "both players draw first" hint`);
   const same = (a, c) => Math.abs(a.width - c.width) <= 2 && Math.abs(a.height - c.height) <= 2;
   const [f0, f1] = [await frame(p, 0), await frame(p, 1)];
   check(same(s0, s1) && same(f0, add) && same(f1, add) && Math.abs(f0.y - add.y) <= 2 === !phonePortrait, `${dev}: three tiles the same size: two boxes + "+" (${Math.round(f0.width)}×${Math.round(f0.height)}, + ${Math.round(add.width)}×${Math.round(add.height)}${phonePortrait ? ", + on the next row" : ", one row"})`);

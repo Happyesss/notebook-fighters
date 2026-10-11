@@ -821,3 +821,10 @@ One line is appended after each test finishes.
   - Back, Esc and the notebook "?" work. The fight "?" opens the controls page with the frame counter frozen, and the fight resumes on close.
   - Offline, the 16 pictures come from the service worker's cache.
 - **Screens:** `/workspace/shots-guide/`.
+
+## Compact phone notebook
+
+- **Why:** on phones the notebook's buttons, chips, colour dots and text were big and chunky, and pushed the drawing boxes below the middle of the screen.
+- **What (≤640 px wide):** the three ways to play sit in one row of 38 px buttons with short labels ("vs Computer", "2 players", "Create room"; the full names stay as the accessible names and on wider screens). Join / Nearby are slim 32 px chips in one row ("🔑 Join with a code", "📶 Nearby · offline"). The How to play pill is 32 px, the colour dots 28 px (with a slightly bigger invisible tap area), the chips under the boxes 30 px with 12.8 px text, the ⤢ / clear tools 28 px. Text is smaller too: the heading 36 px, the intro 14.4 px, button labels 14.4 px, the rival cards and their dialog 12–15 px, and nothing under 12 px. The first drawing box now starts at about 270 px instead of about 420 px. The fight's touch buttons stay at 44 px (already compact).
+- **Tests:** `e2e/compact.mjs` measures all of that at 360×740 and 390×844, plus the rival card's smallest text and the fight buttons. home.mjs expects the short labels on phones. Mobile, home, sketch, guide, twop and busy all pass. The touch guide pictures were retaken.
+- **Screens:** `/workspace/shots-compact/` (`*_before.png` / `*_after.png`: home, rival card, fight at 360 and 390).

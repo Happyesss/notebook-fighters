@@ -173,7 +173,7 @@ for (const [mode, opts] of [["touch", PHONE], ["keys", DESK]]) {
   await p.waitForTimeout(200);
   const touch = mode === "touch";
   await callouts(p, [
-    { sel: ".pencils .pencil", nth: 4, label: "pick a colour", dx: touch ? 0 : 200, dy: touch ? 42 : 0, pad: 2 },
+    { sel: ".pencils .pencil", nth: 4, label: "pick a colour", dx: touch ? 50 : 200, dy: touch ? 92 : 0, pad: 2 },
     { sel: '[data-testid="slot-0"]', label: touch ? "draw here with your finger" : "draw here", dx: 0, dy: touch ? 30 : 40, noBox: true },
     { sel: '[data-testid="expand-0"]', label: "⤢ big pad", dx: touch ? -70 : -90, dy: touch ? 28 : 30 },
     { sel: '[data-testid="clear-0"]', label: "clear", dx: touch ? 10 : 30, dy: touch ? 50 : 50 },
