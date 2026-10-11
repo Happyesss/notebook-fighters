@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/media/logo-240.png" alt="Notebook Fighters logo" width="120">
+
 # ✏️ Notebook Fighters
 
 ### Draw it. Scrub it darker. Make it fight.
@@ -13,7 +15,7 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 [![Rapier](https://img.shields.io/badge/Rapier2D-deterministic-6C5CE7)](https://rapier.rs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F5C518.svg)](LICENSE)
 
-<img src="docs/media/hero.gif" alt="Notebook Fighters: the pencil Hulk kicks, a fireball meets a water wave, a car pops a wheelie" width="720">
+<img src="docs/media/hero.gif" alt="Notebook Fighters: a coloured-pencil swordsman trades hits with the pencil Hulk" width="720">
 
 <!--
   The thumbnail below links to the MP4 in this repo (GitHub opens it in its file viewer).
@@ -36,7 +38,7 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 ## Features
 
 ### 🖍️ Draw anything — the recognizer reads it
-<img src="docs/media/01-draw.jpg" align="right" width="380" alt="Drawing a fighter">
+<img src="docs/media/gallery/02-big-drawing-pad-colours.png" align="right" width="380" alt="The big drawing pad with coloured pencils">
 
 A fully offline reader finds the **head, torso, arms and legs** in your strokes, builds a 15-joint rig and skins *your own ink* to the bones. It also understands **body plans**: biped, four-legged beast (trots in diagonal pairs), blob, snake, car (rolls and pops wheelies), tree, four-armed, even a lone circle. Extras become **tails, capes, hats and weapons**; a sword in the hand gives reach.
 
@@ -69,7 +71,7 @@ Doodle next to your fighter (shape **and** pencil colour count) and press **E / 
 ### 💪 Pre-drawn rivals — including a pencil Hulk
 Eight hand-drawn computer opponents at real fighter height: **skinny kid, dog, boxer, karate guy, ninja, swordsman, pehelwan and the bodybuilder** — a green, cross-hatched pencil Hulk ≈20 % taller than you, whose heavily-drawn chest and arms really do hit harder. Easy / Normal / Hard pick the tier, and the CPU is balanced with a scripted "casual human" bot (every test drawing wins **41–63 %** on Normal).
 
-<img src="docs/media/03-hulk-fight.jpg" width="49%" alt="The Hulk hits back"> <img src="docs/media/10-rivals.jpg" width="49%" alt="Pick a rival">
+<img src="docs/media/gallery/05-fight-vs-bodybuilder.png" width="49%" alt="A sword swing on the pencil Hulk"> <img src="docs/media/gallery/04-rival-picker.png" width="49%" alt="Pick a rival">
 
 ### 👥 Local 2-player
 Two kids, one keyboard: P1 on WASD, P2 on the arrows — each with their own drawing. On a touch screen each player gets their own pads. Best-of-3 with instant rematches.
@@ -90,9 +92,11 @@ Laptops show **only the keyboard legend**; phones and tablets show **only the to
 
 | | | |
 |:---:|:---:|:---:|
-| <img src="docs/media/01-draw.jpg" alt="Draw"><br>**Draw & scrub** | <img src="docs/media/02-fighter-card.jpg" alt="Fighter Card"><br>**Fighter Card** | <img src="docs/media/03-hulk-fight.jpg" alt="Hulk fight"><br>**The Hulk hits back** |
+| <img src="docs/media/gallery/01-home-drawn-fighter.png" alt="The notebook home page"><br>**The notebook: your fighters + "+"** | <img src="docs/media/gallery/02-big-drawing-pad-colours.png" alt="Big drawing pad"><br>**Big pad, coloured pencils** | <img src="docs/media/gallery/03-character-card-bodybuilder.png" alt="Character card"><br>**Rival character cards** |
+| <img src="docs/media/gallery/04-rival-picker.png" alt="Rival picker"><br>**Pick a rival + level** | <img src="docs/media/gallery/05-fight-vs-bodybuilder.png" alt="Fight vs the Hulk"><br>**vs the pencil Hulk** | <img src="docs/media/gallery/06-ko.png" alt="K.O."><br>**K.O.!** |
+| <img src="docs/media/gallery/07-online-room-code-accept.png" alt="Online room"><br>**Room code, Copy, host accepts** | <img src="docs/media/gallery/08-phone-controls-landscape.png" alt="Phone controls"><br>**Phone touch controls** | <img src="docs/media/02-fighter-card.jpg" alt="Fighter Card"><br>**Fighter Card** |
 | <img src="docs/media/04-powers.jpg" alt="Powers"><br>**Powers & counters** | <img src="docs/media/05-weird-drawings.jpg" alt="Weird drawings"><br>**Car, dog, snake, blob** | <img src="docs/media/06-two-player.jpg" alt="Two players"><br>**2 players · 1 keyboard** |
-| <img src="docs/media/07-online.jpg" alt="Online"><br>**Online, side by side** | <img src="docs/media/08-phone-controls.jpg" alt="Phone controls"><br>**Phone touch controls** | <img src="docs/media/09-ko-replay.jpg" alt="KO replay"><br>**Slow-mo KO replay** |
+| <img src="docs/media/09-ko-replay.jpg" alt="KO replay"><br>**Slow-mo KO replay** | | |
 
 ## Controls
 
