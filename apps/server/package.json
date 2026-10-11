@@ -1,0 +1,20 @@
+{
+  "name": "@nf/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/core": "0.16.26",
+    "@colyseus/ws-transport": "^0.16.5",
+    "@nf/shared": "workspace:*",
+    "@nf/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "colyseus.js": "0.16.22"
+  }
+}

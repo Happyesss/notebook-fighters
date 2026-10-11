@@ -1,0 +1,828 @@
+:root {
+  --font-hand: "Patrick Hand", "Comic Sans MS", "Segoe Print", cursive;
+  --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+
+:root {
+  color: #2a241c;
+  background: #e7dcc6;
+  font-family: var(--font-sans), "Source Sans 3", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    linear-gradient(90deg, transparent 46px, rgba(212, 83, 74, 0.55) 46px, rgba(212, 83, 74, 0.55) 48px, transparent 48px),
+    repeating-linear-gradient(to bottom, transparent 0 31px, rgba(158, 176, 204, 0.55) 31px 32px),
+    #f4efe2;
+}
+
+a { color: inherit; }
+
+.sheet {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 12vh 1.5rem 4rem 4.5rem;
+}
+
+.kicker {
+  margin: 0 0 0.4rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: #8a5a32;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: clamp(3.2rem, 8vw, 5.4rem);
+  font-weight: 400;
+  line-height: 0.9;
+}
+
+.pitch {
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: 1.55rem;
+  line-height: 1.35;
+  max-width: 28rem;
+}
+
+.note {
+  max-width: 34rem;
+  line-height: 1.5;
+  color: #4a433a;
+}
+
+.play-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  border: 2px solid #2a241c;
+  border-radius: 999px;
+  text-decoration: none;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: 1.6rem;
+  background: #fffaf1;
+  box-shadow: 3px 3px 0 #2a241c;
+}
+
+.play-link:hover { background: #fff; transform: translate(-1px, -1px); }
+
+.play-link:disabled {
+  opacity: 0.45;
+  transform: none;
+  cursor: default;
+}
+
+button.play-link {
+  cursor: pointer;
+  color: inherit;
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  padding: 0;
+  margin: 1.4rem 0 0;
+  list-style: none;
+  color: #4a433a;
+}
+
+kbd {
+  font-family: var(--font-sans), sans-serif;
+  border: 1px solid #2a241c;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+  background: #fff;
+}
+
+.stage {
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  background: #f4efe2;
+}
+
+.canvas-host {
+  position: absolute;
+  inset: 0;
+}
+
+.canvas-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.overlay a,
+.overlay button,
+.overlay aside,
+.overlay label,
+.overlay input {
+  pointer-events: auto;
+}
+
+.topbar, .bottombar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 0.8rem 1rem 0 3.2rem;
+}
+
+.bottombar {
+  align-items: flex-end;
+  padding-bottom: 0.8rem;
+}
+
+.back {
+  font-family: var(--font-hand), cursive;
+  font-size: 1.2rem;
+  text-decoration: none;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: min(280px, 46vw);
+  margin-right: 6.2rem;
+}
+
+.bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.track {
+  height: 12px;
+  border: 1.5px solid #2a241c;
+  background: #fffaf1;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  width: 100%;
+  background: repeating-linear-gradient(-45deg, #2a241c, #2a241c 4px, #4d463c 4px, #4d463c 8px);
+  transform-origin: left center;
+}
+
+.fill.bag { background: repeating-linear-gradient(-45deg, #d4534a, #d4534a 4px, #e7b2ad 4px, #e7b2ad 8px); }
+
+.hint {
+  margin: 0;
+  color: #5c564c;
+  font-size: 0.95rem;
+}
+
+.pads {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pads button, .text-btn, .tune-toggle {
+  border: 1.5px solid #2a241c;
+  background: rgba(255, 250, 241, 0.9);
+  font-family: var(--font-hand), cursive;
+  font-size: 1.25rem;
+  min-width: 3.2rem;
+  min-height: 3rem;
+  border-radius: 10px;
+}
+
+.pads button:active, .text-btn:active { background: #efe4cf; }
+
+.tune {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  width: min(280px, calc(100vw - 1.4rem));
+  max-height: calc(100dvh - 1.4rem);
+  overflow: auto;
+  padding: 0.8rem 0.9rem 1rem;
+  background: rgba(255, 250, 241, 0.94);
+  border: 1.5px solid #2a241c;
+  box-shadow: 4px 4px 0 rgba(42, 36, 28, 0.15);
+  pointer-events: auto;
+}
+
+.tune h2 {
+  margin: 0.2rem 0 0.6rem;
+  font-family: var(--font-hand), cursive;
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.tune[data-open="false"] .tune-body { display: none; }
+
+.tune[data-open="false"] {
+  width: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.5rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+}
+
+.slider input { grid-column: 1 / -1; width: 100%; }
+
+.tune-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+
+.boot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-hand), cursive;
+  font-size: 2rem;
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .hint { display: none; }
+  .sheet { padding-left: 3.4rem; }
+}
+
+.notebook {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 4vh 1.25rem 3rem 4.4rem;
+}
+
+.pencils {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0.9rem;
+}
+
+.pencil {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  border: 2px solid #2a241c;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pencil[aria-pressed="true"] {
+  outline: 2px solid #2a241c;
+  outline-offset: 3px;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0.4rem 0 1.2rem;
+}
+
+.slot {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  background: rgba(255, 250, 241, 0.45);
+  border: 1.5px dashed rgba(42, 36, 28, 0.4);
+}
+
+.slot canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.slot-label,
+.slot-hint {
+  position: absolute;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  pointer-events: none;
+}
+
+.slot-label {
+  top: 0.35rem;
+  left: 0.5rem;
+  color: #8a5a32;
+  font-size: 1.2rem;
+}
+
+.slot-hint {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(42, 36, 28, 0.35);
+  font-size: 1.3rem;
+}
+
+.slot-clear {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  border: none;
+  background: transparent;
+  color: #8a5a32;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.desk {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  background: radial-gradient(circle at 50% 40%, #e7d8bf, #c9b89a 72%);
+}
+
+.a3-wrap {
+  position: relative;
+  width: min(96vw, calc((100dvh - 2.4rem) * 420 / 297));
+  aspect-ratio: 420 / 297;
+  background: #f6f0e2;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 18px 50px rgba(70, 50, 30, 0.28);
+}
+
+.a3-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.luna-strip {
+  position: absolute;
+  top: 0.55rem;
+  left: 7%;
+  right: 7%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  pointer-events: none;
+}
+
+.luna-card {
+  max-width: min(18rem, 42%);
+  padding: 0.35rem 0.6rem 0.45rem;
+  background: rgba(246, 240, 226, 0.94);
+  border: 1.5px solid #2a241c;
+}
+
+.luna-card.theirs {
+  border-color: #1d4f89;
+  color: #1d4f89;
+  text-align: right;
+}
+
+.luna-name {
+  margin: 0;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.luna-kind,
+.luna-line,
+.luna-stats {
+  margin: 0.1rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.luna-kind { text-transform: uppercase; letter-spacing: 0.08em; }
+
+.verdict {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background: rgba(246, 240, 226, 0.92);
+  border: 2px solid #2a241c;
+  padding: 1rem 1.3rem 1.2rem;
+  box-shadow: 4px 4px 0 rgba(42, 36, 28, 0.15);
+}
+
+.verdict p {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}
+
+@media (max-width: 800px) {
+  .notebook { padding-left: 3.2rem; }
+  .slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.slot-duel {
+  position: absolute;
+  bottom: 0.3rem;
+  right: 0.3rem;
+  border: 1.5px solid #8a5a32;
+  border-radius: 999px;
+  background: #fffaf0;
+  color: #8a5a32;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: 1rem;
+  padding: 0 0.6rem;
+  cursor: pointer;
+}
+
+.reading {
+  position: absolute;
+  left: 50%;
+  top: 8.6rem;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: var(--font-hand), "Patrick Hand", cursive;
+  font-size: 1.1rem;
+  color: #8a5a32;
+  pointer-events: none;
+  width: max-content;
+  max-width: min(80vw, 1100px);
+  text-align: center;
+}
+
+/* the reading cards: the fighter in the duel shows its full reading, the others just name, body and stats */
+.luna-compact { opacity: 0.72; }
+.luna-compact .luna-name { font-size: 1.05rem; }
+.luna-active .luna-name { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- /play round flow: 3-2-1 FIGHT!, K.O. banner, best-of-3 and difficulty */
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 3;
+}
+.banner[data-kind="ko"], .banner[data-kind="match"] { pointer-events: auto; cursor: pointer; }
+.banner p { margin: 0; font-family: var(--font-hand), "Patrick Hand", cursive; }
+.banner-text { font-size: clamp(2.4rem, 8vw, 6rem); color: #c23b32; line-height: 1; text-shadow: 3px 3px 0 rgba(42, 36, 28, 0.12); }
+.banner[data-kind="count"] .banner-text { color: #2a241c; font-size: clamp(4rem, 14vw, 9rem); }
+.banner[data-kind="ko"] .banner-text, .banner[data-kind="match"] .banner-text { font-size: clamp(1.8rem, 5vw, 3.6rem); }
+.banner-sub { font-size: clamp(1.1rem, 2.4vw, 1.6rem); color: #5c564c; margin-top: 0.3rem !important; }
+.banner[data-kind=""] { display: none; }
+.round-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; font-size: 0.9rem; color: #5c564c; }
+.levels { display: inline-flex; gap: 0.25rem; }
+.levels button {
+  border: 1.2px solid #2a241c;
+  background: rgba(255, 250, 241, 0.9);
+  border-radius: 7px;
+  font-size: 0.85rem;
+  padding: 0.05rem 0.45rem;
+}
+.levels button[aria-pressed="true"] { background: #2a241c; color: #f6f0e2; }
+.banner[data-kind="ko"], .banner[data-kind="match"] {
+  top: 24.5%;
+  background: rgba(246, 240, 226, 0.92);
+  border: 2px solid #2a241c;
+  padding: 0.5rem 1.2rem 0.7rem;
+  box-shadow: 4px 4px 0 rgba(42, 36, 28, 0.15);
+}
+/* the reading line steps aside while a K.O. / match card is up */
+.stage:has(.banner[data-kind="ko"]) .reading,
+.stage:has(.banner[data-kind="match"]) .reading { opacity: 0; }
+
+/* ---- Fighter Card: stats from the drawing, and why */
+.fighter-card {
+  position: absolute;
+  left: 3.2rem;
+  top: 2.9rem;
+  width: min(300px, 42vw);
+  z-index: 2;
+  font-size: 0.85rem;
+  pointer-events: auto;
+}
+.card-toggle {
+  border: 1.5px solid #2a241c;
+  background: rgba(255, 250, 241, 0.9);
+  font-family: var(--font-hand), cursive;
+  font-size: 1rem;
+  border-radius: 8px;
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+}
+.card-body {
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.7rem 0.6rem;
+  background: rgba(255, 250, 241, 0.94);
+  border: 1.5px solid #2a241c;
+  box-shadow: 4px 4px 0 rgba(42, 36, 28, 0.15);
+}
+.fighter-card[data-pinned="auto"][data-auto="false"] .card-body,
+.fighter-card[data-pinned="false"] .card-body { display: none; }
+.card-title { margin: 0 0 0.35rem; font-family: var(--font-hand), cursive; font-size: 1.2rem; }
+.stat-row { display: grid; grid-template-columns: 5.2rem 1fr 3.2rem; align-items: center; gap: 0.4rem; margin: 0.12rem 0; }
+.stat-track { height: 8px; border: 1px solid #2a241c; background: #fffaf1; }
+.stat-fill { display: block; height: 100%; background: repeating-linear-gradient(-45deg, #2a241c, #2a241c 3px, #6b6357 3px, #6b6357 6px); }
+.stat-num { text-align: right; font-variant-numeric: tabular-nums; }
+.card-why { margin: 0.45rem 0 0.3rem; padding-left: 1.1rem; color: #4d463c; }
+.card-why li { margin: 0.1rem 0; }
+.card-rival { margin: 0.3rem 0 0; color: #1d4f89; font-size: 0.78rem; }
+
+.slot-wrap { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.slot-stats { margin: 0; font-size: 0.8rem; color: #5c564c; display: flex; flex-direction: column; line-height: 1.25; }
+.slot-why { color: #8a5a32; font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 0.95rem; }
+
+/* the special's cooldown meter under each health bar */
+.meter { position: relative; height: 15px; margin-top: 3px; border: 1.2px solid #2a241c; background: #fffaf1; overflow: hidden; font-size: 0.72rem; line-height: 13px; }
+.meter-fill { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0); background: repeating-linear-gradient(-45deg, #c4962c, #c4962c 3px, #e8d29a 3px, #e8d29a 6px); }
+.meter[data-power="fire"] .meter-fill { background: repeating-linear-gradient(-45deg, #e07a2f, #e07a2f 3px, #f3c49b 3px, #f3c49b 6px); }
+.meter[data-power="water"] .meter-fill, .meter[data-power="ice"] .meter-fill { background: repeating-linear-gradient(-45deg, #3f7fbf, #3f7fbf 3px, #b5cfe8 3px, #b5cfe8 6px); }
+.meter[data-power="wings"] .meter-fill, .meter[data-power="shield"] .meter-fill, .meter[data-power="spikes"] .meter-fill { background: repeating-linear-gradient(-45deg, #6b6357, #6b6357 3px, #cfc7b8 3px, #cfc7b8 6px); }
+.meter-label { position: relative; padding-left: 0.3rem; color: #2a241c; white-space: nowrap; }
+.meter[data-state="ready"] { box-shadow: 0 0 0 2px rgba(196, 150, 44, 0.55); }
+.meter[data-state="ready"] .meter-label { font-weight: bold; }
+.meter[data-state="none"] { opacity: 0.55; }
+.special-btn { border-color: #c4962c !important; }
+.card-power { margin: 0.35rem 0 0; color: #8a5a12; }
+/* 2P duel: each player's legend and touch pads on their own side */
+.bottombar.two-p { justify-content: space-between; gap: 1rem; }
+.player-side { display: flex; flex-direction: column; gap: 0.35rem; max-width: 48%; }
+.player-side.p2 { align-items: flex-end; text-align: right; }
+.player-side .pads { flex-wrap: wrap; }
+.player-side .pads button { min-width: 2.6rem; min-height: 2.6rem; font-size: 1.05rem; }
+.player-side.p1 b { color: #2a241c; }
+.player-side.p2 b { color: #1d4f89; }
+/* home: who plays a 2P duel */
+.two-p-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.4rem 0 0.2rem; font-size: 0.95rem; }
+.two-p-row select { font: inherit; border: 1.5px solid #2a241c; background: #fffaf1; border-radius: 6px; padding: 0.05rem 0.3rem; }
+.slot-badge { position: absolute; top: 0.3rem; left: 1.6rem; font-size: 0.75rem; padding: 0 0.3rem; border-radius: 5px; color: #f6f0e2; background: #2a241c; }
+.slot-badge.p2 { background: #1d4f89; }
+/* phase 4: sound + clip buttons, replay mode */
+.fx-buttons { position: absolute; left: 9.2rem; top: 2.9rem; display: flex; gap: 0.35rem; pointer-events: auto; z-index: 3; }
+.fx-buttons button { border: 1.5px solid #2a241c; background: rgba(255, 250, 241, 0.92); font-family: var(--font-hand), cursive; font-size: 0.95rem; border-radius: 8px; padding: 0.05rem 0.5rem; }
+.fx-buttons button[data-testid="save-clip"] { color: #c23b32; border-color: #c23b32; }
+.fx-buttons button:disabled { opacity: 0.7; }
+.stage[data-replay="on"] .banner, .stage[data-replay="on"] .reading { opacity: 0; }
+.stage[data-replay="on"] .fighter-card { opacity: 0; }
+
+/* ---- phase 5: engine toggles, online duel */
+.fx-buttons { flex-wrap: wrap; max-width: calc(100vw - 30rem); }
+.fx-buttons button[data-testid="renderer-toggle"], .fx-buttons button[data-testid="physics-toggle"] { color: #1d4f89; border-color: #1d4f89; }
+.online .lobby {
+  position: absolute; inset: 0; margin: auto; width: min(36rem, 92vw); height: fit-content; z-index: 4;
+  background: rgba(255, 250, 241, 0.96); border: 2px solid #2a241c; border-radius: 14px; padding: 1.2rem 1.4rem;
+  font-family: var(--font-hand), "Patrick Hand", cursive; box-shadow: 4px 5px 0 rgba(42, 36, 28, 0.15);
+}
+.online .lobby h1 { margin: 0 0 0.4rem; font-size: 2.2rem; }
+.lobby-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.8rem 0; }
+.lobby-actions input { font: inherit; font-size: 1.3rem; width: 7.5rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.15rem 0.4rem; border: 1.5px solid #2a241c; border-radius: 8px; }
+.lobby button { font: inherit; font-size: 1.15rem; border: 1.5px solid #2a241c; border-radius: 8px; background: #fffaf1; padding: 0.15rem 0.7rem; cursor: pointer; }
+.lobby .big-btn { background: #c23b32; color: #fffaf1; border-color: #c23b32; font-size: 1.4rem; }
+.lobby-room b[data-testid="room-code"] { font-size: 2rem; letter-spacing: 0.18em; color: #c23b32; }
+.lobby .share code { font-size: 0.95rem; background: #f1e9d6; padding: 0.05rem 0.3rem; border-radius: 4px; word-break: break-all; }
+.lobby .seats { list-style: none; padding: 0; font-size: 1.2rem; }
+.lobby .seats li[data-filled="false"] { color: #8a8273; }
+.lobby-error { color: #c23b32; }
+.lobby-foot { margin-bottom: 0; font-size: 1rem; }
+.peer-note {
+  position: absolute; left: 50%; top: 42%; transform: translateX(-50%); z-index: 5; margin: 0;
+  background: #fffaf1; border: 2px solid #c23b32; color: #c23b32; border-radius: 10px; padding: 0.4rem 0.9rem;
+  font-family: var(--font-hand), cursive; font-size: 1.3rem;
+}
+.net-hud { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #1d4f89; }
+.net-hud[data-sync="bad"] { color: #c23b32; font-weight: bold; }
+.online .overlay[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- phase 6: home (one fighter, pick a rival) */
+.home-slots { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); max-width: 44rem; }
+.home-slots .slot-badge { left: 1.7rem; }
+.rival-pick h2 { font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1.6rem; margin: 0.2rem 0 0.5rem; font-weight: 400; }
+.rival-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.4rem, 1fr)); gap: 0.55rem; max-width: 60rem; }
+.rival-card {
+  display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.35rem 0.3rem 0.45rem;
+  border: 1.5px solid rgba(42, 36, 28, 0.35); border-radius: 10px; background: rgba(255, 250, 241, 0.7);
+  font: inherit; color: #2a241c; cursor: pointer; min-height: 44px; touch-action: manipulation;
+}
+.rival-card[aria-pressed="true"] { border-color: #c23b32; box-shadow: 0 0 0 2px #c23b32 inset; background: #fffaf1; }
+.rival-thumb { width: 4.6rem; height: 6.1rem; display: block; }
+.rival-q { width: 4.6rem; height: 6.1rem; display: grid; place-items: center; font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 3rem; color: #8a5a32; }
+.rival-name { font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1.15rem; line-height: 1.1; }
+.rival-blurb { font-size: 0.72rem; color: #6b6458; text-align: center; line-height: 1.15; }
+.home-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; margin: 1rem 0 0.5rem; }
+.home-actions .play-link { margin: 0; }
+.card-quality .card-qline { margin: 0.1rem 0 0.3rem; font-size: 0.74rem; color: #6b6458; line-height: 1.2; }
+
+@media (max-width: 640px) {
+  .notebook { padding: 2.5vh 0.8rem 2rem 1.6rem; }
+  .home-slots { grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr); gap: 0.5rem; }
+  .rival-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+  .rival-thumb, .rival-q { width: 3.6rem; height: 4.8rem; }
+  .rival-blurb { display: none; }
+  .home-actions { flex-direction: column; align-items: stretch; }
+  .home-actions .play-link, .home-actions .text-btn { min-height: 48px; font-size: 1.15rem; }
+}
+
+/* ---------------------------------------------------------------- phase 6: touch controls, phones and tablets */
+html, body { overscroll-behavior: none; }
+.stage { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.slot canvas, .tp-stick, .tp-btn { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.bottombar { flex-wrap: wrap; }
+.touchpad { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex: 1 1 100%; pointer-events: none; }
+.touchpad > * { pointer-events: auto; }
+.tp-stick {
+  --s: 7rem;
+  width: var(--s); height: var(--s); border-radius: 50%; flex: none; position: relative; display: grid; place-items: center;
+  border: 2px dashed rgba(42, 36, 28, 0.55); background: rgba(255, 250, 241, 0.55);
+}
+.tp-knob { width: 44%; height: 44%; border-radius: 50%; background: rgba(42, 36, 28, 0.82); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2); transition: transform 60ms linear; pointer-events: none; }
+.tp-buttons { display: grid; grid-template-columns: repeat(3, auto); gap: 0.45rem; align-items: end; justify-content: end; }
+.tp-btn {
+  --b: 3.4rem;
+  min-width: var(--b); height: var(--b); padding: 0 0.6rem; border-radius: 999px; border: 2px solid #2a241c; background: rgba(255, 250, 241, 0.92);
+  font-family: var(--font-hand), cursive; font-size: 1.2rem; color: #2a241c; line-height: 1;
+}
+.tp-btn:active, .tp-btn[data-on="true"] { background: #efe4cf; transform: translateY(1px); }
+.tp-punch, .tp-kick { --b: 4rem; font-size: 1.35rem; background: #fffaf1; }
+.tp-punch { border-color: #c23b32; color: #c23b32; }
+.tp-kick { border-color: #1d4f89; color: #1d4f89; }
+.tp-special { border-color: #c4962c; color: #8a6a1c; }
+.bottombar.two-p .touchpad { flex: 1 1 0; }
+.bottombar.two-p .tp-p2 { flex-direction: row-reverse; }
+.bottombar.two-p .tp-p2 .tp-buttons { justify-content: start; }
+.bottombar.two-p .player-side { flex: 1 1 0; display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+
+/* fine pointer (mouse): the pad is smaller, the keyboard legend shows */
+@media (pointer: fine) {
+  .tp-stick { --s: 5.2rem; }
+  .tp-btn { --b: 2.9rem; font-size: 1.05rem; }
+  .tp-punch, .tp-kick { --b: 3.2rem; }
+}
+/* touch screens: big controls, no keyboard legend */
+@media (pointer: coarse) {
+  .bottombar .hint kbd, .bottombar .hint { font-size: 0.75rem; }
+  /* compact thumb controls (~35% smaller than before), still ≥44 px targets, semi-transparent */
+  .tp-stick { --s: clamp(4.4rem, 17vmin, 6.2rem); opacity: 0.85; background: rgba(255, 250, 241, 0.4); }
+  .tp-buttons { gap: 0.35rem; }
+  .tp-btn { --b: 2.75rem; min-width: 2.75rem; padding: 0 0.45rem; font-size: 0.92rem; opacity: 0.88; background: rgba(255, 250, 241, 0.72); }
+  .tp-punch, .tp-kick { --b: clamp(2.75rem, 9vmin, 3.1rem); font-size: 1rem; background: rgba(255, 250, 241, 0.8); }
+}
+/* phones in portrait: the arena sits above the controls instead of under them */
+@media (pointer: coarse) and (max-aspect-ratio: 4/5) {
+  .stage .canvas-host { bottom: clamp(7.6rem, 19vh, 9.5rem); }
+  .bottombar { padding: 0.4rem 0.6rem calc(0.6rem + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(244, 239, 226, 0.95) 22%); }
+  .bottombar.two-p { flex-direction: column; align-items: stretch; }
+}
+/* small screens: tighter HUD */
+@media (max-width: 700px), (max-height: 500px) {
+  .topbar { padding: 0.4rem 0.6rem 0 2.2rem; gap: 0.5rem; }
+  .bars { min-width: min(220px, 44vw); margin-right: 0; }
+  .bottombar { padding-left: 0.6rem; padding-right: 0.6rem; }
+  .fighter-card[data-pinned="auto"] .card-body { display: none; }
+}
+/* phones: one slim row for back / engine buttons / tuners, the health bars full width under it */
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; padding-top: 2.5rem; padding-left: 0.6rem; }
+  .back { position: absolute; top: 0.45rem; left: 0.6rem; font-size: 1rem; pointer-events: auto; }
+  .bars { flex: 1 1 100%; min-width: 0; margin-right: 0; }
+  .fx-buttons { left: 6.4rem; right: 5.2rem; top: 0.4rem; max-width: none; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .fx-buttons button { font-size: 0.78rem; white-space: nowrap; padding: 0 0.35rem; flex: none; }
+  .tune { top: 0.35rem; right: 0.5rem; }
+  .tune-toggle { font-size: 0.95rem; min-height: 1.9rem; min-width: 0; padding: 0 0.5rem; }
+  .fighter-card { left: 0.6rem; top: 10.2rem; width: min(300px, 84vw); }
+  .reading { top: 12.3rem; font-size: 0.9rem; width: 92vw; max-width: 92vw; }
+}
+/* tablets in portrait: wrap the engine buttons in the gap left of the health bars instead of running under them */
+@media (min-width: 701px) and (max-width: 900px) and (min-height: 501px) {
+  .fx-buttons { max-width: calc(100vw - 37rem); }
+}
+/* phones in landscape: keep the engine buttons on one row and the tuners clear of the bars */
+@media (max-height: 500px) and (min-width: 701px) {
+  .fx-buttons { flex-wrap: nowrap; overflow-x: auto; max-width: calc(100vw - 33rem); scrollbar-width: none; top: 2.4rem; }
+  .fx-buttons button { font-size: 0.8rem; white-space: nowrap; flex: none; }
+  .bars { margin-right: 5rem; }
+  .tune-toggle { font-size: 0.95rem; min-height: 2rem; min-width: 0; padding: 0 0.5rem; }
+  .fighter-card { top: 4.4rem; }
+  .reading { top: 7.6rem; font-size: 0.9rem; }
+}
+/* phones in landscape: lift the arena so the fighters stand above the stick and buttons */
+@media (pointer: coarse) and (min-aspect-ratio: 4/3) and (max-height: 520px) {
+  .stage .canvas-host { bottom: 5.5rem; }
+  .tp-btn, .tp-stick { opacity: 0.85; }
+}
+@media (max-width: 640px) { .slot-badge .opt { display: none; } }
+/* phones in landscape: the drawing slot fits on the screen (so the whole fighter can be drawn without scrolling) */
+@media (max-height: 500px) and (min-width: 641px) {
+  .home-slots { max-width: calc((100dvh - 3rem) * 1.3); }
+}
+
+/* ---------------------------------------------------------------- phase 6b: phones fight full-screen */
+.menu-toggle { display: none; }
+/* the fighters' arena and HUD on phones: a slim HUD (both bars on one row), chips and tuners in a ☰ menu */
+html[data-fit="phone-landscape"] .stage, html[data-fit="phone-portrait"] .stage { --hud: 1; }
+html[data-fit^="phone"] .menu-toggle {
+  display: inline-grid; place-items: center; position: absolute; z-index: 5; pointer-events: auto;
+  width: 2.4rem; height: 2.1rem; border: 1.5px solid #2a241c; border-radius: 8px; background: rgba(255, 250, 241, 0.92);
+  font-size: 1.15rem; line-height: 1;
+}
+html[data-fit^="phone"] .stage[data-menu="closed"] .fx-buttons,
+html[data-fit^="phone"] .stage[data-menu="closed"] .tune,
+html[data-fit^="phone"] .stage[data-menu="closed"] .reading { display: none; }
+html[data-fit^="phone"] .stage[data-menu="open"] .fx-buttons {
+  display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; overflow: visible;
+  position: absolute; z-index: 6; padding: 0.5rem; max-width: none; width: 11rem;
+  background: rgba(255, 250, 241, 0.97); border: 1.5px solid #2a241c; border-radius: 10px; box-shadow: 3px 3px 0 rgba(42, 36, 28, 0.15);
+}
+html[data-fit^="phone"] .stage[data-menu="open"] .fx-buttons button { font-size: 0.95rem; padding: 0.2rem 0.4rem; min-height: 2.2rem; white-space: nowrap; }
+html[data-fit^="phone"] .stage[data-menu="open"] .reading { top: auto; bottom: auto; z-index: 6; background: rgba(255, 250, 241, 0.95); padding: 0.2rem 0.5rem; border-radius: 6px; }
+html[data-fit^="phone"] .stage[data-menu="open"] .tune { z-index: 6; }
+/* slim HUD: two bars side by side, power meters only when a power is drawn, small round row */
+html[data-fit^="phone"] .bars { flex-direction: row; flex-wrap: wrap; gap: 0.15rem 0.6rem; }
+html[data-fit^="phone"] .bars > div:not(.round-row) { flex: 1 1 0; min-width: 0; }
+html[data-fit^="phone"] .bar-label { font-size: 0.68rem; }
+html[data-fit^="phone"] .track { height: 0.55rem; }
+html[data-fit^="phone"] .meter[data-state="none"] { display: none; }
+html[data-fit^="phone"] .meter { height: 0.95rem; font-size: 0.62rem; margin-top: 0.15rem; }
+html[data-fit^="phone"] .round-row { flex: 1 1 100%; font-size: 0.72rem; gap: 0.3rem; align-items: center; }
+html[data-fit^="phone"] .round-row .levels button { font-size: 0.72rem; padding: 0 0.35rem; }
+html[data-fit^="phone"] .card-toggle { font-size: 0.82rem; padding: 0 0.4rem; }
+html[data-fit^="phone"] .banner-text { font-size: clamp(2rem, 9vmin, 3.4rem); }
+
+/* phone landscape: the canvas fills the screen (the view keeps the ground above the controls),
+   the HUD is one slim strip at the top, the controls are one low row at each bottom corner */
+html[data-fit="phone-landscape"] .stage .canvas-host { bottom: 0; }
+html[data-fit="phone-landscape"] .topbar { padding: 0.3rem 0.6rem 0 3.4rem; align-items: center; flex-wrap: nowrap; gap: 0.5rem; }
+html[data-fit="phone-landscape"] .back { position: static; font-size: 0.85rem; white-space: nowrap; }
+html[data-fit="phone-landscape"] .menu-toggle { left: 0.5rem; top: 0.3rem; }
+html[data-fit="phone-landscape"] .stage[data-menu="open"] .fx-buttons { left: 0.5rem; top: 2.7rem; }
+html[data-fit="phone-landscape"] .stage[data-menu="open"] .reading { top: 2.7rem; left: 13rem; transform: none; width: auto; max-width: calc(100vw - 14rem); }
+html[data-fit="phone-landscape"] .stage[data-menu="open"] .tune { top: 2.7rem; right: 0.5rem; }
+html[data-fit="phone-landscape"] .bars { flex: 1 1 auto; margin-right: 0; min-width: 0; }
+html[data-fit="phone-landscape"] .round-row { flex: 0 0 auto; }
+html[data-fit="phone-landscape"] .bars { flex-wrap: nowrap; align-items: center; }
+html[data-fit="phone-landscape"] .fighter-card { top: 2.6rem; left: auto; right: 0.6rem; width: min(270px, 40vw); }
+html[data-fit="phone-landscape"] .fighter-card .card-toggle { float: right; }
+html[data-fit="phone-landscape"] .bottombar { padding: 0 0.6rem calc(0.4rem + env(safe-area-inset-bottom)); }
+html[data-fit="phone-landscape"] .tp-stick { --s: 4.2rem; opacity: 0.8; }
+html[data-fit="phone-landscape"] .tp-buttons { grid-template-columns: repeat(6, auto); gap: 0.3rem; }
+html[data-fit="phone-landscape"] .tp-btn { --b: 2.75rem; font-size: 0.78rem; padding: 0 0.4rem; opacity: 0.82; }
+html[data-fit="phone-landscape"] .tp-punch, html[data-fit="phone-landscape"] .tp-kick { --b: 2.9rem; font-size: 0.88rem; }
+html[data-fit="phone-landscape"] .bottombar.two-p .tp-buttons { grid-template-columns: repeat(3, auto); }
+
+/* phone portrait: HUD on top, the arena under it, the controls below the arena */
+html[data-fit="phone-portrait"] .menu-toggle { right: 0.5rem; top: 0.35rem; }
+html[data-fit="phone-portrait"] .stage[data-menu="open"] .fx-buttons { left: auto; right: 0.5rem; top: 2.8rem; }
+html[data-fit="phone-portrait"] .stage[data-menu="open"] .reading { top: auto; bottom: calc(clamp(7.6rem, 19vh, 9.5rem) + 0.5rem); left: 50%; }
+html[data-fit="phone-portrait"] .stage[data-menu="open"] .tune { top: 2.8rem; right: 12rem; width: min(220px, calc(100vw - 13rem)); }
+html[data-fit="phone-portrait"] .fighter-card { top: 5.6rem; }
+html[data-fit="phone-portrait"] .stage .canvas-host { top: 4.5rem; }
+
+/* phone landscape header: ☰, then the bars with a clear gap; "← notebook" lives in the ☰ menu (where there is one);
+   the notebook's red margin line sits in the gap between ☰ and the bars instead of under the text */
+.menu-back { display: none; }
+html[data-fit="phone-landscape"] body {
+  background:
+    linear-gradient(90deg, transparent 57px, rgba(212, 83, 74, 0.55) 57px, rgba(212, 83, 74, 0.55) 59px, transparent 59px),
+    repeating-linear-gradient(to bottom, transparent 0 31px, rgba(158, 176, 204, 0.55) 31px 32px),
+    #f4efe2;
+}
+html[data-fit="phone-landscape"] .topbar { padding-left: calc(72px + env(safe-area-inset-left)); gap: 1rem; }
+html[data-fit="phone-landscape"] .topbar:has(.menu-toggle) .back { display: none; }
+html[data-fit="phone-landscape"] .stage[data-menu="open"] .fx-buttons .menu-back {
+  display: flex; align-items: center; justify-content: center; text-decoration: none; font-family: var(--font-hand), cursive;
+  font-size: 0.95rem; min-height: 2.2rem; border: 1.5px solid #2a241c; border-radius: 8px; background: rgba(255, 250, 241, 0.92); padding: 0.2rem 0.4rem;
+}
+html[data-fit="phone-landscape"] .menu-toggle { left: calc(0.5rem + env(safe-area-inset-left)); }
+html[data-fit="phone-landscape"] .bars { column-gap: 1rem; }
+
+/* controls per device (play/input-mode.ts): a mouse + keyboard sees only the keyboard legend, a finger only the
+   touch pads. Hybrid laptops switch on the first touch / key press. Gamepads work in both. */
+html[data-input="keys"] .touchpad { display: none !important; }
+html[data-input="touch"] .bottombar > .hint:not(:has(.net-hud)),
+html[data-input="touch"] .player-side .hint,
+html[data-input="touch"] .keys-legend { display: none !important; }

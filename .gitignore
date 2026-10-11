@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+.next/
+.next-build/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts.bak
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# test output (screenshots, recordings, traces)
+e2e/shots/
+e2e/node_modules/
+test-results/
+playwright-report/
+*.webm
+
+# OS / editor
+.DS_Store
+__MACOSX/
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# deploy
+.vercel

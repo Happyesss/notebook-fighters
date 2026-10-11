@@ -1,0 +1,34 @@
+{
+  "name": "@nf/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@dimforge/rapier2d-deterministic-compat": "^0.21.0",
+    "@nf/shared": "workspace:*"
+  },
+  "scripts": {
+    "test": "tsx test/rig.ts && tsx test/shapes.ts && tsx test/recognize.ts && tsx test/duel.ts && tsx test/ko.ts && tsx test/powers.ts && tsx test/specials.ts && tsx test/stats.ts && tsx test/edge.ts && tsx test/reach.ts && tsx test/versus.ts && tsx test/scribble.ts && tsx test/rivalcheck.ts && tsx test/rapier.ts && tsx test/roster.ts",
+    "test:rig": "tsx test/rig.ts",
+    "test:shapes": "tsx test/shapes.ts",
+    "test:recognize": "tsx test/recognize.ts",
+    "test:duel": "tsx test/duel.ts",
+    "test:ko": "tsx test/ko.ts",
+    "test:powers": "tsx test/powers.ts",
+    "test:specials": "tsx test/specials.ts",
+    "test:stats": "tsx test/stats.ts",
+    "test:edge": "tsx test/edge.ts",
+    "test:reach": "tsx test/reach.ts",
+    "test:versus": "tsx test/versus.ts",
+    "test:scribble": "tsx test/scribble.ts",
+    "test:rivalcheck": "tsx test/rivalcheck.ts",
+    "test:rapier": "tsx test/rapier.ts",
+    "test:roster": "tsx test/roster.ts",
+    "balance": "tsx test/bot.ts"
+  }
+}

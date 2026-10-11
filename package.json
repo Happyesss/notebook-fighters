@@ -1,0 +1,26 @@
+{
+  "name": "notebook-fighters",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @nf/web dev",
+    "build": "pnpm --filter @nf/web build",
+    "start": "pnpm --filter @nf/web start",
+    "server": "pnpm --filter @nf/server start",
+    "typecheck": "pnpm -r --workspace-concurrency=1 exec tsc --noEmit -p .",
+    "test": "pnpm --filter @nf/sim test",
+    "test:online": "pnpm --filter @nf/server exec tsx test/headless.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "turbo": "^2.6.1",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "description": "Draw it. Scrub it darker. Make it fight. A notebook-doodle fighting game.",
+  "license": "MIT"
+}
