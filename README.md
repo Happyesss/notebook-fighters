@@ -15,7 +15,7 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 [![Rapier](https://img.shields.io/badge/Rapier2D-deterministic-6C5CE7)](https://rapier.rs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F5C518.svg)](LICENSE)
 
-<img src="docs/media/hero.gif" alt="Notebook Fighters: a coloured-pencil swordsman trades hits with the pencil Hulk" width="720">
+<img src="docs/media/hero.gif" alt="Notebook Fighters: a colourful pencil fighter dodges the Halloween pumpkin and the Hulk lands a mega leap" width="720">
 
 <!--
   The thumbnail below links to the MP4 in this repo (GitHub opens it in its file viewer).
@@ -25,7 +25,7 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 -->
 <a href="docs/media/notebook-fighters-demo.mp4"><img src="docs/media/notebook-fighters-thumbnail.jpg" alt="Watch the demo" width="720"></a>
 
-**[▶ Watch the demo](docs/media/notebook-fighters-demo.mp4)** · 66 s · 1080p60 · real gameplay
+**[▶ Watch the demo](docs/media/notebook-fighters-demo.mp4)** · 63 s · 1080p60 · real gameplay: drawing pad, How to play, Halloween, Skeleton, Pehelwan and Hulk specials, online rooms, Play nearby, phone layout
 
 </div>
 
