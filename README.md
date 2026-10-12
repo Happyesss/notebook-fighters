@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/aad5cee1-e66c-460d-8c4d-12003e6840fb
+
 <div align="center">
 
 <img src="docs/media/logo-240.png" alt="Notebook Fighters logo" width="120">
