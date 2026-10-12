@@ -1,7 +1,3 @@
-
-
-https://github.com/user-attachments/assets/aad5cee1-e66c-460d-8c4d-12003e6840fb
-
 <div align="center">
 
 <img src="docs/media/logo-240.png" alt="Notebook Fighters logo" width="120">
@@ -21,15 +17,9 @@ The ink you draw *is* the body that moves: every stroke is rigged, skinned and a
 
 <img src="docs/media/hero.gif" alt="Notebook Fighters: a colourful pencil fighter dodges the Halloween pumpkin and the Hulk lands a mega leap" width="720">
 
-<!--
-  The thumbnail below links to the MP4 in this repo (GitHub opens it in its file viewer).
-  To get an inline video player in this README instead: edit README.md in the GitHub web editor,
-  drag docs/media/notebook-fighters-demo.mp4 into the editor (≤ 100 MB for paid plans, ≤ 10 MB on free
-  accounts — re-encode smaller if needed), and GitHub replaces it with a user-attachments URL that renders as a player.
--->
-<a href="docs/media/notebook-fighters-demo.mp4"><img src="docs/media/notebook-fighters-thumbnail.jpg" alt="Watch the demo" width="720"></a>
+https://github.com/user-attachments/assets/aad5cee1-e66c-460d-8c4d-12003e6840fb
 
-**[▶ Watch the demo](docs/media/notebook-fighters-demo.mp4)** · 63 s · 1080p60 · real gameplay: drawing pad, How to play, Halloween, Skeleton, Pehelwan and Hulk specials, online rooms, Play nearby, phone layout
+**63 s of real gameplay:** drawing pad, How to play, Halloween, Skeleton, Pehelwan and Hulk specials, online rooms, Play nearby, phone layout · [full 1080p60 file](docs/media/notebook-fighters-demo.mp4)
 
 </div>
 
