@@ -18,6 +18,7 @@ node nearby.mjs        # play nearby: offline pages from the service worker (nee
 node walls.mjs         # holding A takes the body to the red margin line, P2 to the right wall: desktop (Canvas2D + PixiJS), phones, tablet
 node rivals.mjs        # Halloween and Skeleton before the Bodybuilder; cards and picker show the four rivals' own specials; each special on screen
 node compact.mjs       # phones 360 / 390 px: slim buttons in one row (vs Computer · 2 players · Create room), slim Join / Nearby chips, 28 px colour dots, 30 px chips, text 12–15 px, boxes start higher; fight buttons still 44 px
+node hud.mjs           # phones: the fight HUD (bars, meters, round line) never touches Easy/Normal/Hard, Fighter card, ☰, ? or ⟳ Rotate — 667×375, 844×390, 740×360, 360×740, 390×844 and the CSS-rotated iPhone view
 node guide.mjs         # How to play: keyboard guide on desktop, touch guide on iPhone / iPad / 360 px; first visit opens it once; pages, swipe, keys, Esc; pauses a fight; offline pictures
 node guide-shots.mjs   # (re)makes the guide's labelled screenshots into apps/web/public/guide/ (needs python3 + Pillow)
 node busy.mjs          # online over the free plan's limits (503 / 429 1027 / no network / WS refused) → "Online is busy right now" + offline options
