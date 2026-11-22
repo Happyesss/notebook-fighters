@@ -48,6 +48,8 @@ export type FighterSnap = {
   dashing: boolean;
   /** Bone scatter: 0..1 while the skeleton lies in a pile of bones (0 = standing) */
   scatter: number;
+  /** Phase out: 0..1 while phantom is invisible (0 = fully visible) */
+  invisible: number;
 };
 
 /** a thrown power: fireball, water wave, ice shard */
@@ -146,6 +148,8 @@ export const WALL_X = STAGE + 0.3;
 /** Bone scatter: how long the skeleton lies in a pile, and how far it reappears forward */
 export const SCATTER_T = 0.55;
 const SCATTER_STEP = 0.6;
+/** Phase out: duration of invisibility (seconds) */
+export const PHANTOM_T = 2.4;
 /** a signature special's cooldown by level (Easy waits longer) */
 export const SIGNATURE_COOL: Record<Difficulty, number> = { easy: 1.5, normal: 1.2, hard: 1 };
 /** the most of a fighter's body counted against a wall (a long dog's snout may poke past) */
@@ -208,6 +212,8 @@ class Fighter {
   coolMax = 0;
   /** Bone scatter: seconds left lying in a pile of bones (nothing hits it) */
   scatter = 0;
+  /** Phase out: seconds left invisible (attacks pass through) */
+  invisible = 0;
   /** Mega leap: in the air, smashing down on landing */
   slam = false;
   constructor(
@@ -263,6 +269,7 @@ class Fighter {
     this.airJumps = 0;
     this.pendingShot = { t: -1, kind: null };
     this.scatter = 0;
+    this.invisible = 0;
     this.slam = false;
     this.lunge = { v: 0, t: 0 };
     this.pendingJump = -1;
@@ -297,6 +304,7 @@ class Fighter {
       frozen: this.frozen > 0,
       dashing: this.dash.t > 0 || this.dive === 2,
       scatter: this.scatter > 0 ? Math.min(1, this.scatter / SCATTER_T) : 0,
+      invisible: this.invisible > 0 ? Math.min(1, this.invisible / PHANTOM_T) : 0,
     };
   }
 }
@@ -333,7 +341,7 @@ export type SimOptions = {
 export const GAME_PACE = 0.72;
 /** pre-drawn rivals: overall strength by tier (1 kid/dog, 2 boxer/karate/ninja/swordsman, 3 pehelwan/bodybuilder) */
 /** a pre-drawn rival with a power: its overall strength by power (tuned with test/bot.ts) */
-export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95 };
+export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95, phantom: 1 };
 /** the CPU blocks a beast's attacks less often (tuned with the bot: a four-legged drawing was blocked into 0% wins on Hard) */
 const HARD_TO_READ = new Set<string>(["bite", "tailWhip", "charge", "pounce"]);
 export const HARD_TO_READ_BLOCK = 0.5;
@@ -468,7 +476,7 @@ export class NotebookSim {
   checksum(): number {
     const nums: number[] = [this.frame, this.round, this.wins[0], this.wins[1], this.hitstop, this.countdown];
     for (const f of this.fighters) {
-      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0);
+      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0, f.invisible);
       for (const j of f.anim.joints) nums.push(j.x, j.y);
     }
     for (const p of this.projectiles) nums.push(p.x, p.y, p.vx, p.life);
@@ -734,7 +742,7 @@ export class NotebookSim {
 
     // frozen by ice, or wading through the other side's puddle: slower
     const wading = this.puddles.some((p) => p.owner !== this.fighters.indexOf(f) && Math.abs(f.x - p.x) < p.w && !f.airborne);
-    const speed = tuning.walkSpeed * 0.62 * f.stats.speed * (f.frozen > 0 ? 0.5 : 1) * (wading ? 0.55 : 1);
+    const speed = tuning.walkSpeed * 0.62 * f.stats.speed * (f.frozen > 0 ? 0.5 : 1) * (wading ? 0.55 : 1) * (f.invisible > 0 ? 1.25 : 1);
     if (!f.airborne) {
       const canWalk = !busy && !stunned && !f.blocking && !f.crouching && f.pendingJump < 0;
       const target = canWalk ? input.x * speed * (input.x * f.facing < 0 ? 0.8 : 1) : 0;
@@ -981,8 +989,8 @@ export class NotebookSim {
     const anchor = spec.striker === "weapon" ? att.world(att.anim.joints[att.rig.weapon?.limb === "armB" ? J.handB : J.handF]) : null;
     att.tip = samples.reduce((a, p) => (anchor ? Math.hypot(p.x - anchor.x, p.y - anchor.y) > Math.hypot(a.x - anchor.x, a.y - anchor.y) : (p.x - a.x) * att.facing > 0) ? p : a, samples[0]);
     if (vic.ko || att.struck || !(pre?.active ?? att.anim.active)) return;
-    // a skeleton lying in a pile of bones: the blow passes through
-    if (vic.scatter > 0) return;
+    // a skeleton lying in a pile of bones, or an invisible phantom: the blow passes through
+    if (vic.scatter > 0 || vic.invisible > 0) return;
     // hurtbox = the victim's actual bones (its drawn proportions)
     let d = Infinity;
     let tip = att.tip;
@@ -1136,12 +1144,15 @@ export class NotebookSim {
       f.slam = true;
       cast("kick", true);
       this.fx.push({ kind: "jump", x: f.x, y: 0 });
+    } else if (kind === "phantom") {
+      f.invisible = PHANTOM_T;
+      this.fx.push({ kind: "special", ...f.world(f.anim.joints[J.chest]), power: "phantom", dir: f.facing });
     }
   }
 
   /** a special lands: block/shield, element counters, the power's own effect, K.O. */
   private specialHit(att: Fighter, vic: Fighter, kind: PowerKind, dmg0: number, kb: number, stun: number, at: Pt, shot = false) {
-    if (vic.ko || vic.scatter > 0) return;
+    if (vic.ko || vic.scatter > 0 || vic.invisible > 0) return;
     const prof = AI_PROFILES[this.difficulty];
     const scale = this.ai === "on" ? (att === this.fighters[0] ? prof.playerDmg : prof.rivalDmg * prof.rivalSpecial) : 1;
     const elem = kind === "fire" || kind === "water" || kind === "lightning" || kind === "ice" ? kind : null;
@@ -1149,7 +1160,7 @@ export class NotebookSim {
     let dmg = dmg0 * scale * att.powerMult * att.stats.bodyScale * counter * vic.stats.armour.torso;
     const dir = Math.sign(vic.x - att.x) || att.facing;
     const front = (vic.x - att.x) * vic.facing < 0;
-    const color = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c" }[kind];
+    const color = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c", phantom: "#8e5bc9" }[kind];
     if (vic.blocking && front) {
       // a drawn shield stops shots and specials cold; a bare block takes a little
       dmg *= vic.passives.has("shield") ? 0 : 0.2;
@@ -1242,9 +1253,12 @@ export class NotebookSim {
           if (near < 0.45 && Math.abs(foe.y - f.y) < 0.6) this.specialHit(f, foe, "bones", 8, 1.6, 0.35, f.world(f.anim.joints[J.chest]));
         }
       }
+      if (f.invisible > 0) {
+        f.invisible = Math.max(0, f.invisible - dt);
+      }
       // dashes and dives hit once on contact
       const gap = Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front;
-      if (f.dash.t > 0 && !f.dash.hit && !foe.ko) {
+      if (f.dash.t > 0 && !f.dash.hit && !foe.ko && !(foe.invisible > 0)) {
         const through = f.dash.kind === "lightning" && Math.sign(foe.x - f.x) !== Math.sign(f.dash.v);
         if ((gap < 0.26 || through) && Math.abs(foe.y - f.y) < 0.5) {
           f.dash.hit = true;
@@ -1286,7 +1300,7 @@ export class NotebookSim {
       if (p.life <= 0 || frozenTime) continue;
       const vic = F[1 - p.owner];
       const att = F[p.owner];
-      if (vic.ko || vic.scatter > 0) continue;
+      if (vic.ko || vic.scatter > 0 || vic.invisible > 0) continue;
       // the shockwave runs along the ground: a fighter in the air is not on it
       if (p.kind === "quake" && vic.airborne) continue;
       const vj = vic.anim.joints;
@@ -1374,8 +1388,8 @@ export class NotebookSim {
         this.aiDecided = true;
         // an animal's bite, tail whip, charge or pounce comes low and from odd angles: harder to read and block
         const read = HARD_TO_READ.has(foe.anim.move) ? HARD_TO_READ_BLOCK : 1;
-        // the skeleton's answer to a hit coming in: fall to bits (the hit whiffs) and reform next to you
-        if (me.special === "bones" && me.cool <= 0 && gap < 0.9 + reach && this.rnd() < prof.special * 1.6) {
+        // the skeleton or phantom's answer to a hit coming in: fall to bits / phase out (the hit whiffs)
+        if ((me.special === "bones" || me.special === "phantom") && me.cool <= 0 && gap < 0.9 + reach && this.rnd() < prof.special * 1.6) {
           out.special = true;
           return out;
         }
@@ -1401,6 +1415,7 @@ export class NotebookSim {
           : k === "quake" ? g < 2.2 && grounded
           : k === "leap" ? g < 4 && grounded
           : k === "bones" ? g < 0.25 && this.rnd() < 0.4
+          : k === "phantom" ? g < 2.5 && this.rnd() < 0.65
           : k === "fire" || k === "water" || k === "ice" ? g > 0.35 : k === "lightning" || k === "wings" ? g > 0.15 && g < 1.4 : k === "shield" ? g < 0.8 : g < 0.45;
         if (fits) {
           out.special = true;

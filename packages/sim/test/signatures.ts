@@ -33,7 +33,7 @@ const run = (sim: NotebookSim, n: number, me: (i: number) => PlayerInput = () =>
 };
 const at = (k: number, inp: Partial<PlayerInput>) => (i: number) => (i === k ? { ...IDLE, ...inp } : IDLE);
 
-for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["pehelwan", "quake"], ["bodybuilder", "leap"]] as const) {
+for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["pehelwan", "quake"], ["bodybuilder", "leap"], ["phantom", "phantom"]] as const) {
   const sim = mk(id, 2);
   check(sim.fighters[1].special === kind, `${id}: own special ${POWER_INFO[kind].special} (not a drawn power), every ${sim.fighters[1].coolMax.toFixed(1)}s on Normal`);
 }
@@ -114,14 +114,28 @@ for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["peh
   check(hp0 - p.hp > 6 && r.shake >= 0.8, `bodybuilder: lands in a smash for ${(hp0 - p.hp).toFixed(1)}, shake ${r.shake.toFixed(2)} · fx ${r.fx.filter((f) => f !== "land").join(" ")}`);
 }
 
+// Phantom: PHASE OUT turns invisible and untouchable for a few seconds
+{
+  const sim = mk("phantom", 2.0);
+  const p = sim.fighters[0];
+  const f = sim.fighters[1];
+  check(f.invisible === 0, "phantom starts visible");
+  run(sim, 20, undefined, at(0, { special: true }));
+  check(f.invisible > 0, `phantom phased out (invisible timer ${f.invisible.toFixed(2)}s)`);
+  // player tries to hit phantom while invisible: attacks should pass through
+  const hp0 = f.hp;
+  run(sim, 30, at(0, { punch: true }), undefined);
+  check(f.hp === hp0, `player attack passed right through phased phantom (hp remained ${f.hp})`);
+}
+
 // Easy is gentler: longer cooldown; Hard the shortest
-for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder"] as const) {
+for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom"] as const) {
   const [e, n, h] = (["easy", "normal", "hard"] as const).map((d) => mk(id, 2, d).fighters[1].coolMax);
   check(e > n && n > h, `${id}: cooldown easy ${e.toFixed(1)}s > normal ${n.toFixed(1)}s > hard ${h.toFixed(1)}s`);
 }
 
 // the CPU uses them, but not all the time; and it's all deterministic
-for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder"] as const) {
+for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom"] as const) {
   const play = () => {
     const sim = new NotebookSim({ player: clean, rivalId: id, rivalPower: "auto", difficulty: "hard", countdown: 0 });
     let uses = 0;

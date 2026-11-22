@@ -90,10 +90,19 @@ export function paintInk(canvas: HTMLCanvasElement | null, strokes: Stroke[]) {
 
 function trace(ctx: CanvasRenderingContext2D, pts: Pt[], w: number, h: number) {
   ctx.beginPath();
-  pts.forEach((pt, i) => {
-    if (i === 0) ctx.moveTo(pt.x * w, pt.y * h);
-    else ctx.lineTo(pt.x * w, pt.y * h);
-  });
+  if (pts.length === 0) return;
+  ctx.moveTo(pts[0].x * w, pts[0].y * h);
+  if (pts.length < 3) {
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * w, pts[i].y * h);
+    return;
+  }
+  for (let i = 1; i < pts.length - 1; i++) {
+    const mx = ((pts[i].x + pts[i + 1].x) / 2) * w;
+    const my = ((pts[i].y + pts[i + 1].y) / 2) * h;
+    ctx.quadraticCurveTo(pts[i].x * w, pts[i].y * h, mx, my);
+  }
+  const last = pts[pts.length - 1];
+  ctx.lineTo(last.x * w, last.y * h);
 }
 
 /** distance from p to the segment ab, in box widths (y is scaled by the 3:4 box) */

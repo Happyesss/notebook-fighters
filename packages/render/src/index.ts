@@ -376,8 +376,27 @@ export class NotebookView {
           drawFighter(ctx, f.rig, joints, { scale: S, x: base.x - f.facing * g * S * 0.12, y: base.y, facing: f.facing, time: now + g, alpha: 0.22 / g, tint: f.element === "lightning" ? "#c4962c" : f.color, deform });
       }
       if ((f.scatter ?? 0) > 0 && !f.ko) this.bonePile(base.x, base.y, S, f.facing, f.scatter ?? 0, "#3b3632");
-      else drawFighter(ctx, f.rig, joints, { scale: S, x: base.x, y: base.y, facing: f.facing, time: now + i * 0.37, shiver: f.shiver, deform, tint: f.frozen && !f.ko ? "#3f7fbf" : null });
-      if (this.labels && !f.ko) {
+      else {
+        const invis = (f.invisible ?? 0) > 0 && !f.ko;
+        const alpha = invis ? 0.18 + 0.08 * Math.sin(now * 12) : 1;
+        const tint = invis ? "#8e5bc9" : f.frozen && !f.ko ? "#3f7fbf" : null;
+        drawFighter(ctx, f.rig, joints, { scale: S, x: base.x, y: base.y, facing: f.facing, time: now + i * 0.37, shiver: f.shiver, deform, tint, alpha });
+        if (invis) {
+          ctx.save();
+          ctx.strokeStyle = "#9b72cf";
+          ctx.lineWidth = Math.max(1.2, S * 0.007);
+          ctx.globalAlpha = 0.35 + 0.15 * Math.sin(now * 10);
+          for (let w = 0; w < 4; w++) {
+            const wx = base.x + (Math.sin(now * 5 + w * 1.8) * 0.18 + (w - 1.5) * 0.1) * S * f.facing;
+            const wy = base.y - ((now * 0.4 + w * 0.25) % 1) * S * 0.8;
+            ctx.beginPath();
+            ctx.arc(wx, wy, Math.max(0.5, S * 0.035 * (1 - ((now * 0.4 + w * 0.25) % 1))), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+      if (this.labels && !f.ko && !((f.invisible ?? 0) > 0)) {
         const hc = headCenterOf(f.rig, joints);
         tags[i] = toScreen({ x: x + f.facing * hc.x, y: y + hc.y + 0.3 });
       }
