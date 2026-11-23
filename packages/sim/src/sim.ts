@@ -50,10 +50,12 @@ export type FighterSnap = {
   scatter: number;
   /** Phase out: 0..1 while phantom is invisible (0 = fully visible) */
   invisible: number;
+  /** Web shot: 0..1 while webbed / tangled (0 = free) */
+  webbed: number;
 };
 
 /** a thrown power: fireball, water wave, ice shard */
-export type Projectile = { kind: Element | "pumpkin" | "quake"; owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; dmg: number; g?: number };
+export type Projectile = { kind: Element | "pumpkin" | "quake" | "web"; owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; dmg: number; g?: number };
 /** a slippery puddle left by a water wave: the other side walks slowly through it */
 export type Puddle = { x: number; w: number; t: number; owner: number };
 
@@ -150,6 +152,8 @@ export const SCATTER_T = 0.55;
 const SCATTER_STEP = 0.6;
 /** Phase out: duration of invisibility (seconds) */
 export const PHANTOM_T = 2.4;
+/** Web shot: how long the target is tangled (seconds) */
+export const WEB_T = 3.0;
 /** a signature special's cooldown by level (Easy waits longer) */
 export const SIGNATURE_COOL: Record<Difficulty, number> = { easy: 1.5, normal: 1.2, hard: 1 };
 /** the most of a fighter's body counted against a wall (a long dog's snout may poke past) */
@@ -207,13 +211,15 @@ class Fighter {
   dive = 0;
   diveHit = false;
   airJumps = 0;
-  pendingShot = { t: -1, kind: null as Element | "pumpkin" | "quake" | null };
+  pendingShot = { t: -1, kind: null as Element | "pumpkin" | "quake" | "web" | null };
   /** the special's full cooldown (a signature special is slower on the easier levels) */
   coolMax = 0;
   /** Bone scatter: seconds left lying in a pile of bones (nothing hits it) */
   scatter = 0;
   /** Phase out: seconds left invisible (attacks pass through) */
   invisible = 0;
+  /** Web shot: seconds left tangled by a web (can't move or attack) */
+  webbed = 0;
   /** Mega leap: in the air, smashing down on landing */
   slam = false;
   constructor(
@@ -270,6 +276,7 @@ class Fighter {
     this.pendingShot = { t: -1, kind: null };
     this.scatter = 0;
     this.invisible = 0;
+    this.webbed = 0;
     this.slam = false;
     this.lunge = { v: 0, t: 0 };
     this.pendingJump = -1;
@@ -305,6 +312,7 @@ class Fighter {
       dashing: this.dash.t > 0 || this.dive === 2,
       scatter: this.scatter > 0 ? Math.min(1, this.scatter / SCATTER_T) : 0,
       invisible: this.invisible > 0 ? Math.min(1, this.invisible / PHANTOM_T) : 0,
+      webbed: this.webbed > 0 ? Math.min(1, this.webbed / WEB_T) : 0,
     };
   }
 }
@@ -341,7 +349,7 @@ export type SimOptions = {
 export const GAME_PACE = 0.72;
 /** pre-drawn rivals: overall strength by tier (1 kid/dog, 2 boxer/karate/ninja/swordsman, 3 pehelwan/bodybuilder) */
 /** a pre-drawn rival with a power: its overall strength by power (tuned with test/bot.ts) */
-export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95, phantom: 1 };
+export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95, phantom: 1, web: 1.02 };
 /** the CPU blocks a beast's attacks less often (tuned with the bot: a four-legged drawing was blocked into 0% wins on Hard) */
 const HARD_TO_READ = new Set<string>(["bite", "tailWhip", "charge", "pounce"]);
 export const HARD_TO_READ_BLOCK = 0.5;
@@ -476,7 +484,7 @@ export class NotebookSim {
   checksum(): number {
     const nums: number[] = [this.frame, this.round, this.wins[0], this.wins[1], this.hitstop, this.countdown];
     for (const f of this.fighters) {
-      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0, f.invisible);
+      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0, f.invisible, f.webbed);
       for (const j of f.anim.joints) nums.push(j.x, j.y);
     }
     for (const p of this.projectiles) nums.push(p.x, p.y, p.vx, p.life);
@@ -726,7 +734,7 @@ export class NotebookSim {
       return;
     }
     const busy = f.anim.busy && (isAttack(f.anim.move) || f.anim.move === "hit" || f.anim.move === "hitLow" || f.anim.move === "jumpCrouch");
-    const stunned = f.stun > 0 || f.scatter > 0;
+    const stunned = f.stun > 0 || f.scatter > 0 || f.webbed > 0;
     // held states
     const wantBlock = !!input.block && !f.airborne && !stunned;
     const wantCrouch = !!input.crouch && !f.airborne && !stunned && !wantBlock;
@@ -776,6 +784,10 @@ export class NotebookSim {
     const g = tuning.gravity * G_SCALE;
     this.gNow = g;
     f.stun = Math.max(0, f.stun - dt);
+    if (f.webbed > 0) {
+      f.vx = 0;
+      f.lunge = { v: 0, t: 0 };
+    }
     if (f.pendingJump >= 0) {
       f.pendingJump -= dt;
       if (f.pendingJump < 0) {
@@ -1147,6 +1159,15 @@ export class NotebookSim {
     } else if (kind === "phantom") {
       f.invisible = PHANTOM_T;
       this.fx.push({ kind: "special", ...f.world(f.anim.joints[J.chest]), power: "phantom", dir: f.facing });
+    } else if (kind === "web") {
+      // Spider-Man: leap into the air and fire a web projectile at the opponent
+      if (!f.airborne) {
+        f.vy = 1.8 * f.stats.jump;
+        f.y = 0.0002;
+        this.fx.push({ kind: "jump", x: f.x, y: 0 });
+      }
+      cast("punch", true);
+      f.pendingShot = { t: 0.14, kind: "web" };
     }
   }
 
@@ -1160,7 +1181,7 @@ export class NotebookSim {
     let dmg = dmg0 * scale * att.powerMult * att.stats.bodyScale * counter * vic.stats.armour.torso;
     const dir = Math.sign(vic.x - att.x) || att.facing;
     const front = (vic.x - att.x) * vic.facing < 0;
-    const color = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c", phantom: "#8e5bc9" }[kind];
+    const color = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c", phantom: "#8e5bc9", web: "#cccccc" }[kind];
     if (vic.blocking && front) {
       // a drawn shield stops shots and specials cold; a bare block takes a little
       dmg *= vic.passives.has("shield") ? 0 : 0.2;
@@ -1180,6 +1201,10 @@ export class NotebookSim {
     if (kind === "fire") vic.burn = { t: 1.6, dps: 2.2 * att.powerMult, by: this.fighters.indexOf(att) };
     if (kind === "water") vic.burn.t = 0; // puts the fire out
     if (kind === "ice") vic.frozen = 1.7 * att.powerMult;
+    if (kind === "web") {
+      vic.webbed = WEB_T;
+      vic.vx = 0;
+    }
     if (kind === "water") this.puddles.push({ x: vic.x, w: 0.45, t: 3, owner: this.fighters.indexOf(att) });
     this.hitstop = Math.min(10, Math.round(3 + dmg / 5));
     this.impact += dmg / 16;
@@ -1226,6 +1251,16 @@ export class NotebookSim {
             this.projectiles.push({ kind: "quake", owner: i, x: f.x + f.facing * (f.rig.extent.front + 0.04), y: 0.05, vx: 2.9 * f.facing, vy: 0, r: 0.13, life: 1.25, dmg: 8 });
             this.impact += 0.55;
             this.fx.push({ kind: "land", x: f.x + f.facing * 0.15, y: 0 });
+          } else if (k === "web") {
+            // web shot: a fast web projectile aimed at the foe's chest
+            const x0 = f.x + f.facing * (f.rig.extent.front + 0.06);
+            const y0 = Math.max(0.3, hand.y);
+            const dx = Math.max(0.2, Math.abs(foe.x - x0));
+            const speed = 4.2;
+            const flightTime = dx / speed;
+            const targetY = foe.y + 0.45;
+            const vy = (targetY - y0) / flightTime;
+            this.projectiles.push({ kind: "web", owner: i, x: x0, y: y0, vx: speed * f.facing, vy, r: 0.09, life: 1.8, dmg: 5 });
           } else {
             const y = k === "water" ? 0.2 : Math.max(0.3, Math.min(0.55, hand.y));
             const spec = { fire: { v: 3.3, r: 0.075, dmg: 9 }, water: { v: 2.6, r: 0.2, dmg: 7 }, ice: { v: 3.0, r: 0.065, dmg: 8 }, lightning: { v: 0, r: 0, dmg: 0 } }[k];
@@ -1255,6 +1290,10 @@ export class NotebookSim {
       }
       if (f.invisible > 0) {
         f.invisible = Math.max(0, f.invisible - dt);
+      }
+      if (f.webbed > 0) {
+        f.webbed = Math.max(0, f.webbed - dt);
+        f.vx = 0; // webbed fighters can't move
       }
       // dashes and dives hit once on contact
       const gap = Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front;
@@ -1308,8 +1347,8 @@ export class NotebookSim {
       for (const [a, b] of BONE_PAIRS) d = Math.min(d, segDist(p, vic.world(vj[a]), vic.world(vj[b])));
       if (d < p.r + 0.06) {
         p.life = 0;
-        const kb = p.kind === "water" ? 2.8 : p.kind === "quake" ? 1.5 : p.kind === "pumpkin" ? 1.3 : 1.1;
-        const stun = p.kind === "fire" ? 0.25 : p.kind === "quake" ? 0.75 : p.kind === "pumpkin" ? 0.5 : 0.3;
+        const kb = p.kind === "water" ? 2.8 : p.kind === "quake" ? 1.5 : p.kind === "pumpkin" ? 1.3 : p.kind === "web" ? 0.3 : 1.1;
+        const stun = p.kind === "fire" ? 0.25 : p.kind === "quake" ? 0.75 : p.kind === "pumpkin" ? 0.5 : p.kind === "web" ? 0.1 : 0.3;
         this.specialHit(att, vic, p.kind, p.dmg, kb, stun, { x: p.x, y: Math.max(0.15, p.y) }, true);
       }
     }
@@ -1416,6 +1455,7 @@ export class NotebookSim {
           : k === "leap" ? g < 4 && grounded
           : k === "bones" ? g < 0.25 && this.rnd() < 0.4
           : k === "phantom" ? g < 2.5 && this.rnd() < 0.65
+          : k === "web" ? g < 3.5 && this.rnd() < 0.7
           : k === "fire" || k === "water" || k === "ice" ? g > 0.35 : k === "lightning" || k === "wings" ? g > 0.15 && g < 1.4 : k === "shield" ? g < 0.8 : g < 0.45;
         if (fits) {
           out.special = true;

@@ -28,6 +28,7 @@ const ABOUT: Record<RosterId, string> = {
   skeleton: "Nothing but bones, and it rattles. Hit it at the wrong moment and it falls to pieces, then snaps back together right next to you.",
   bodybuilder: "Drawn a size bigger than everyone else on the page. Hulking arms, heavy hits, and a leap that crosses the arena.",
   phantom: "A dashing gentleman thief in a top hat and cape, with a domino mask and white gloves. Flashes a 'DX' calling card before vanishing into thin air — can phase out and slip through every attack.",
+  spiderman: "Your friendly neighborhood Spider-Man! In a fully web-detailed suit, leaps high into the air and fires a web that traps and tangles the opponent for 3 seconds.",
 };
 
 const BUTTON_NAMES: Record<RivalProfile["moves"][number]["button"], string> = { punch: "Punch button", kick: "Kick button", run: "Run in + punch", air: "Jump + attack" };

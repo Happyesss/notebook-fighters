@@ -436,6 +436,35 @@ export class NotebookView {
         ctx.restore();
       }
 
+      // webbed status: wrapped in spiderweb strands
+      if ((f.webbed ?? 0) > 0 && !f.ko) {
+        const hc = headCenterOf(f.rig, joints);
+        const center = toScreen({ x: x + f.facing * hc.x, y: y + hc.y - 0.1 });
+        ctx.save();
+        ctx.strokeStyle = "#4a453e";
+        ctx.lineWidth = Math.max(1.5, S * 0.008);
+        ctx.lineCap = "round";
+        const w = S * 0.18;
+        const h = S * 0.35;
+        for (let k = -2; k <= 2; k++) {
+          const yy = center.y + (k / 2.5) * h;
+          ctx.beginPath();
+          ctx.moveTo(center.x - w * (0.8 + 0.2 * Math.cos(k * 1.3)), yy - S * 0.02);
+          ctx.quadraticCurveTo(center.x, yy + S * 0.03, center.x + w * (0.8 + 0.2 * Math.sin(k * 1.1)), yy - S * 0.01);
+          ctx.stroke();
+        }
+        // diagonal criss-cross web lines
+        ctx.beginPath();
+        ctx.moveTo(center.x - w * 0.75, center.y - h * 0.85);
+        ctx.lineTo(center.x + w * 0.75, center.y + h * 0.85);
+        ctx.moveTo(center.x + w * 0.75, center.y - h * 0.85);
+        ctx.lineTo(center.x - w * 0.75, center.y + h * 0.85);
+        ctx.moveTo(center.x, center.y - h * 0.9);
+        ctx.lineTo(center.x, center.y + h * 0.9);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // KO: scribble-out + teacher's stamp
       if (f.ko) {
         if (this.koAt[i] === null) this.koAt[i] = now;
@@ -662,6 +691,43 @@ export class NotebookView {
         ctx.beginPath();
         ctx.moveTo(at.x - dir * r * 1.2, at.y);
         ctx.lineTo(at.x + dir * r * 1.6, at.y);
+        ctx.stroke();
+      } else if (p.kind === "web") {
+        // Spider-Man web projectile: spinning web net with radial spokes and concentric rings
+        const spin = now * 14 * dir;
+        ctx.save();
+        ctx.translate(at.x, at.y);
+        ctx.rotate(spin);
+        ctx.strokeStyle = "#4a453e";
+        ctx.lineWidth = Math.max(1.6, S * 0.009);
+        // radial web spokes
+        for (let a = 0; a < 6; a++) {
+          const ang = (a * Math.PI) / 3;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(ang) * r * 1.3, Math.sin(ang) * r * 1.3);
+          ctx.stroke();
+        }
+        // concentric web rings
+        for (let ring = 1; ring <= 2; ring++) {
+          const rr = r * 0.6 * ring;
+          ctx.beginPath();
+          for (let a = 0; a <= 6; a++) {
+            const ang = (a * Math.PI) / 3;
+            const px = Math.cos(ang) * rr;
+            const py = Math.sin(ang) * rr;
+            if (a === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+        // trailing web strand
+        ctx.strokeStyle = "#6a645a";
+        ctx.lineWidth = Math.max(1.2, S * 0.006);
+        ctx.beginPath();
+        ctx.moveTo(at.x - dir * r * 1.1, at.y);
+        ctx.lineTo(at.x - dir * r * 2.8, at.y + Math.sin(now * 25) * r * 0.3);
         ctx.stroke();
       }
     }

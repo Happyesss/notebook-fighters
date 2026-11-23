@@ -9,7 +9,7 @@ import type { Difficulty } from "./sim";
 import type { Pose } from "./anim";
 import type { Signature } from "./powers";
 
-export type RosterId = "bodybuilder" | "ninja" | "pehelwan" | "boxer" | "kid" | "karate" | "swordsman" | "dog" | "halloween" | "skeleton" | "phantom";
+export type RosterId = "bodybuilder" | "ninja" | "pehelwan" | "boxer" | "kid" | "karate" | "swordsman" | "dog" | "halloween" | "skeleton" | "phantom" | "spiderman";
 export type RosterEntry = {
   id: RosterId;
   name: string;
@@ -1026,6 +1026,269 @@ function phantom(): InkStroke[] {
   return [...read, ...D];
 }
 
+/**
+ * Spider-Man: peak-detail comic-book wall-crawler in his iconic red & blue suit.
+ * Features:
+ *  - Classic Romita/McFarlane large expressive eye lenses with thick black tapering rims and reflection sheen
+ *  - Intricate spiderweb mask grid with center hub and 3 tiers of scalloped arcs
+ *  - Athletic superhero anatomy: defined pecs, 6-pack abs, deltoids, and serratus cuts under the spandex
+ *  - Bold black chest spider emblem with 8 angular articulated legs
+ *  - Red & blue comic-book suit blocking with underarm pit-web wings and shadow hatching
+ *  - Signature "THWIP" web-shooter hand gesture with wrist shooter device and shooting web strand
+ *  - High red boots with pointed chevron tops and web lacing
+ */
+function spiderman(): InkStroke[] {
+  const r = "#c72032";       // vibrant comic scarlet red
+  const rDark = "#8e1522";   // deep red shadow / muscle crease
+  const b = "#1c3b7a";       // classic comic cobalt blue
+  const bDark = "#102047";   // deep navy shadow for suit flanks
+  const k = "#18141c";       // dense black ink for webs, emblem & lens borders
+  const w = "#f5f8fc";       // gleaming white eye lenses
+  const gleam = "#9ec5eb";   // lens reflection highlight
+  const webLine = "#504656"; // subtle web strand grey
+
+  const p = pencil(130);
+  const q = pencil(131);
+  const q2 = pencil(132);
+
+  // ── read skeleton: clean athletic unarmed biped ──
+  const read: InkStroke[] = [
+    { color: r, points: p.ellipse(0.5, 0.15, 0.058, 0.068) },
+    { color: r, points: p.path([[0.5, 0.22], [0.5, 0.55]]) },
+    { color: r, points: p.path([[0.5, 0.29], [0.39, 0.38], [0.33, 0.48]]) },
+    { color: r, points: p.path([[0.5, 0.29], [0.61, 0.37], [0.67, 0.44]]) },
+    { color: b, points: p.path([[0.5, 0.55], [0.42, 0.73], [0.38, 0.93]]) },
+    { color: b, points: p.path([[0.5, 0.55], [0.60, 0.73], [0.63, 0.93]]) },
+  ];
+
+  const D: InkStroke[] = [];
+  const add = (...s: InkStroke[]) => D.push(...s);
+  const line = (seed: number, pts: [number, number][], where: "head" | "torso" | "auto", width = 1, col = k) =>
+    deco(col, pencil(seed).path(pts, 0.002), where, width);
+
+  // ══════════════════════════════════════════════════════════════
+  // 1. HEAD & MASK: Aerodynamic skull, jawline, and iconic eyes
+  // ══════════════════════════════════════════════════════════════
+  // Red mask base fill & reinforced skull contour
+  add(...passes(r, 601, [[0.5, 0.082], [0.452, 0.096], [0.442, 0.142], [0.455, 0.188], [0.482, 0.218], [0.5, 0.222], [0.518, 0.218], [0.545, 0.188], [0.558, 0.142], [0.548, 0.096], [0.5, 0.082]], "head", 1.4, 2));
+  // Jawline and chin contour
+  add(line(602, [[0.448, 0.165], [0.468, 0.205], [0.5, 0.222], [0.532, 0.205], [0.552, 0.165]], "head", 1.3, rDark));
+
+  // ── THE LEGENDARY EXPRESSIVE EYE LENSES ──
+  // Left eye lens (white interior)
+  add(deco(w, q.path([[0.458, 0.126], [0.435, 0.148], [0.458, 0.170], [0.490, 0.162], [0.492, 0.138], [0.458, 0.126]]), "head", 1.6));
+  add(deco(w, q2.path([[0.455, 0.128], [0.438, 0.148], [0.456, 0.168], [0.488, 0.160], [0.490, 0.140], [0.455, 0.128]]), "head", 1.4));
+  // Left eye diagonal sheen reflection
+  add(line(603, [[0.450, 0.142], [0.470, 0.162]], "head", 0.9, gleam));
+  // Left eye outer thick black border (McFarlane sweep)
+  add(...passes(k, 604, [[0.492, 0.132], [0.456, 0.122], [0.430, 0.146], [0.455, 0.174], [0.492, 0.164]], "head", 2.2, 2));
+  add(line(605, [[0.430, 0.146], [0.420, 0.142]], "head", 1.5, k)); // sharp outer peak
+
+  // Right eye lens (white interior)
+  add(deco(w, q.path([[0.542, 0.126], [0.565, 0.148], [0.542, 0.170], [0.510, 0.162], [0.508, 0.138], [0.542, 0.126]]), "head", 1.6));
+  add(deco(w, q2.path([[0.545, 0.128], [0.562, 0.148], [0.544, 0.168], [0.512, 0.160], [0.510, 0.140], [0.545, 0.128]]), "head", 1.4));
+  // Right eye sheen reflection
+  add(line(606, [[0.530, 0.162], [0.550, 0.142]], "head", 0.9, gleam));
+  // Right eye outer thick black border
+  add(...passes(k, 607, [[0.508, 0.132], [0.544, 0.122], [0.570, 0.146], [0.545, 0.174], [0.508, 0.164]], "head", 2.2, 2));
+  add(line(608, [[0.570, 0.146], [0.580, 0.142]], "head", 1.5, k)); // sharp outer peak
+
+  // ── INTRICATE WEB MASK GRID ──
+  // Center web hub point between eyebrows
+  add(line(610, [[0.5, 0.082], [0.5, 0.222]], "head", 0.9, k)); // vertical center line
+  // Radial spokes radiating from center
+  add(line(611, [[0.5, 0.138], [0.458, 0.092]], "head", 0.7, k));
+  add(line(612, [[0.5, 0.138], [0.542, 0.092]], "head", 0.7, k));
+  add(line(613, [[0.5, 0.138], [0.435, 0.124]], "head", 0.7, k));
+  add(line(614, [[0.5, 0.138], [0.565, 0.124]], "head", 0.7, k));
+  add(line(615, [[0.5, 0.145], [0.440, 0.190]], "head", 0.7, k));
+  add(line(616, [[0.5, 0.145], [0.560, 0.190]], "head", 0.7, k));
+  add(line(617, [[0.5, 0.170], [0.470, 0.216]], "head", 0.7, k));
+  add(line(618, [[0.5, 0.170], [0.530, 0.216]], "head", 0.7, k));
+
+  // Concentric scalloped web arcs connecting the mask spokes
+  // Forehead web arcs
+  add(deco(k, q.arc(0.5, 0.138, 0.024, 0.016, 0.35, 2.8, 8), "head", 0.65));
+  add(deco(k, q.arc(0.5, 0.138, 0.044, 0.032, 0.35, 2.8, 10), "head", 0.65));
+  add(deco(k, q.arc(0.5, 0.138, 0.062, 0.048, 0.40, 2.74, 12), "head", 0.65));
+  // Lower face & chin web arcs
+  add(deco(k, q.arc(0.5, 0.165, 0.026, 0.018, -2.8, -0.34, 8), "head", 0.65));
+  add(deco(k, q.arc(0.5, 0.165, 0.045, 0.034, -2.7, -0.44, 10), "head", 0.65));
+
+  // ══════════════════════════════════════════════════════════════
+  // 2. TORSO: Suit Color Blocking, Muscle Anatomy & Chest Spider
+  // ══════════════════════════════════════════════════════════════
+  // Deep blue side flank panels (lats & obliques)
+  add(...passes(bDark, 620, [[0.445, 0.27], [0.428, 0.34], [0.425, 0.42], [0.440, 0.50], [0.455, 0.53]], "torso", 1.8, 2));
+  add(...passes(bDark, 621, [[0.555, 0.27], [0.572, 0.34], [0.575, 0.42], [0.560, 0.50], [0.545, 0.53]], "torso", 1.8, 2));
+  // Blue flank comic-book shadow hatching
+  add(...strokes(bDark, hatch(622, [0.44, 0.28], [0.43, 0.48], 0.05, 0.95, -0.005, 0.016, 0.012), "torso", 0.7));
+  add(...strokes(bDark, hatch(623, [0.56, 0.28], [0.57, 0.48], 0.05, 0.95, 0.005, -0.016, 0.012), "torso", 0.7));
+
+  // Red central vest panel (tapers into a V at the belt)
+  add(...passes(r, 624, [[0.445, 0.26], [0.450, 0.38], [0.468, 0.48], [0.485, 0.53]], "torso", 1.6, 2));
+  add(...passes(r, 625, [[0.555, 0.26], [0.550, 0.38], [0.532, 0.48], [0.515, 0.53]], "torso", 1.6, 2));
+  // Neck & collarbone line
+  add(line(626, [[0.470, 0.235], [0.5, 0.245], [0.530, 0.235]], "torso", 1.2, rDark));
+  add(line(627, [[0.450, 0.250], [0.5, 0.262], [0.550, 0.250]], "torso", 1.0, rDark));
+
+  // ── SUPERHERO ATHLETIC MUSCULATURE UNDER SPANDEX ──
+  // Pectoral slabs (left and right pecs)
+  add(line(630, [[0.5, 0.265], [0.465, 0.268], [0.440, 0.292], [0.442, 0.332], [0.475, 0.345], [0.5, 0.340]], "torso", 1.3, rDark));
+  add(line(631, [[0.5, 0.265], [0.535, 0.268], [0.560, 0.292], [0.558, 0.332], [0.525, 0.345], [0.5, 0.340]], "torso", 1.3, rDark));
+  // Under-pec shadow cuts
+  add(line(632, [[0.450, 0.338], [0.480, 0.346]], "torso", 1.1, k));
+  add(line(633, [[0.550, 0.338], [0.520, 0.346]], "torso", 1.1, k));
+
+  // Six-pack abdominal muscles
+  add(line(634, [[0.5, 0.340], [0.5, 0.525]], "torso", 1.2, rDark)); // Linea alba
+  // Left abs
+  add(line(635, [[0.472, 0.348], [0.470, 0.382], [0.474, 0.424], [0.480, 0.472]], "torso", 1.0, rDark));
+  // Right abs
+  add(line(636, [[0.528, 0.348], [0.530, 0.382], [0.526, 0.424], [0.520, 0.472]], "torso", 1.0, rDark));
+  // Ab cuts (horizontal divisions)
+  add(line(637, [[0.474, 0.385], [0.5, 0.382], [0.526, 0.385]], "torso", 1.0, rDark));
+  add(line(638, [[0.476, 0.428], [0.5, 0.424], [0.524, 0.428]], "torso", 1.0, rDark));
+  add(line(639, [[0.480, 0.475], [0.5, 0.470], [0.520, 0.475]], "torso", 1.0, rDark));
+
+  // ── UNDERARM PIT-WEB WINGS (Classic Ditko aesthetic) ──
+  // Back underarm web wing
+  add(deco(webLine, q.path([[0.45, 0.28], [0.40, 0.31], [0.36, 0.34], [0.38, 0.37], [0.42, 0.36]]), "auto", 0.85));
+  add(deco(webLine, q.path([[0.40, 0.31], [0.42, 0.34]]), "auto", 0.65));
+  add(deco(webLine, q.path([[0.36, 0.34], [0.43, 0.38]]), "auto", 0.65));
+  // Front underarm web wing
+  add(deco(webLine, q.path([[0.55, 0.28], [0.60, 0.31], [0.64, 0.34], [0.62, 0.37], [0.58, 0.36]]), "auto", 0.85));
+  add(deco(webLine, q.path([[0.60, 0.31], [0.58, 0.34]]), "auto", 0.65));
+  add(deco(webLine, q.path([[0.64, 0.34], [0.57, 0.38]]), "auto", 0.65));
+
+  // ── TORSO WEB GRID ──
+  // Vertical and radial web lines on red vest
+  add(line(640, [[0.5, 0.25], [0.450, 0.28]], "torso", 0.7, k));
+  add(line(641, [[0.5, 0.25], [0.550, 0.28]], "torso", 0.7, k));
+  add(line(642, [[0.5, 0.35], [0.455, 0.39]], "torso", 0.65, k));
+  add(line(643, [[0.5, 0.35], [0.545, 0.39]], "torso", 0.65, k));
+  add(line(644, [[0.5, 0.42], [0.470, 0.45]], "torso", 0.65, k));
+  add(line(645, [[0.5, 0.42], [0.530, 0.45]], "torso", 0.65, k));
+  add(line(646, [[0.5, 0.48], [0.482, 0.51]], "torso", 0.65, k));
+  add(line(647, [[0.5, 0.48], [0.518, 0.51]], "torso", 0.65, k));
+  // Scalloped web arcs across the chest and abs
+  add(deco(k, q.arc(0.5, 0.25, 0.030, 0.022, 0.35, 2.8, 6), "torso", 0.6));
+  add(deco(k, q.arc(0.5, 0.25, 0.052, 0.038, 0.35, 2.8, 8), "torso", 0.6));
+  add(deco(k, q.arc(0.5, 0.35, 0.026, 0.020, 0.35, 2.8, 6), "torso", 0.6));
+  add(deco(k, q.arc(0.5, 0.35, 0.048, 0.035, 0.35, 2.8, 8), "torso", 0.6));
+  add(deco(k, q.arc(0.5, 0.43, 0.024, 0.018, 0.35, 2.8, 6), "torso", 0.6));
+  add(deco(k, q.arc(0.5, 0.43, 0.042, 0.030, 0.35, 2.8, 8), "torso", 0.6));
+
+  // ── ICONIC CHEST SPIDER EMBLEM ──
+  // Segmented diamond cephalothorax and abdomen
+  add(...passes(k, 650, [[0.5, 0.325], [0.494, 0.334], [0.5, 0.348], [0.506, 0.334], [0.5, 0.325]], "torso", 1.8, 2));
+  add(deco(k, scribble(651, 0.495, 0.505, 0.326, 0.346, 3), "torso", 1.2));
+  // 8 articulated angular spider legs:
+  // Upper-left legs reaching up across left pec
+  add(...passes(k, 652, [[0.495, 0.330], [0.472, 0.312], [0.458, 0.320]], "torso", 1.4, 2));
+  add(...passes(k, 653, [[0.495, 0.334], [0.468, 0.325], [0.455, 0.338]], "torso", 1.4, 2));
+  // Lower-left legs angling down across left ribs
+  add(...passes(k, 654, [[0.495, 0.340], [0.468, 0.352], [0.460, 0.368]], "torso", 1.4, 2));
+  add(...passes(k, 655, [[0.495, 0.344], [0.474, 0.364], [0.468, 0.385]], "torso", 1.4, 2));
+  // Upper-right legs reaching up across right pec
+  add(...passes(k, 656, [[0.505, 0.330], [0.528, 0.312], [0.542, 0.320]], "torso", 1.4, 2));
+  add(...passes(k, 657, [[0.505, 0.334], [0.532, 0.325], [0.545, 0.338]], "torso", 1.4, 2));
+  // Lower-right legs angling down across right ribs
+  add(...passes(k, 658, [[0.505, 0.340], [0.532, 0.352], [0.540, 0.368]], "torso", 1.4, 2));
+  add(...passes(k, 659, [[0.505, 0.344], [0.526, 0.364], [0.532, 0.385]], "torso", 1.4, 2));
+
+  // ══════════════════════════════════════════════════════════════
+  // 3. ARMS: Muscular Contours, Gloves, & Signature "THWIP" Pose
+  // ══════════════════════════════════════════════════════════════
+  // Deltoids (shoulder muscle caps)
+  add(line(660, [[0.445, 0.27], [0.415, 0.29], [0.400, 0.33], [0.415, 0.36]], "auto", 1.3, r));
+  add(line(661, [[0.555, 0.27], [0.585, 0.29], [0.600, 0.33], [0.585, 0.36]], "auto", 1.3, r));
+  // Blue inner arm sleeve panels
+  add(line(662, [[0.420, 0.32], [0.385, 0.36]], "auto", 1.2, b));
+  add(line(663, [[0.580, 0.32], [0.615, 0.36]], "auto", 1.2, b));
+
+  // Back arm red glove (with chevron cuff & web lines)
+  add(...passes(r, 664, [[0.380, 0.37], [0.350, 0.41], [0.330, 0.47]], "auto", 1.5, 2));
+  add(line(665, [[0.395, 0.365], [0.380, 0.385], [0.370, 0.375]], "auto", 1.2, rDark)); // glove cuff
+  add(line(666, [[0.375, 0.38], [0.345, 0.44]], "auto", 0.7, k));
+  add(line(667, [[0.360, 0.40], [0.375, 0.42]], "auto", 0.7, k));
+  // Back hand: athletic spider crawl fist
+  add(deco(r, q.ellipse(0.330, 0.480, 0.016, 0.014), "auto", 1.2));
+  add(line(668, [[0.320, 0.475], [0.340, 0.475]], "auto", 0.8, k));
+
+  // Front arm red glove (with chevron cuff & web grid)
+  add(...passes(r, 670, [[0.615, 0.36], [0.645, 0.40], [0.670, 0.44]], "auto", 1.5, 2));
+  add(line(671, [[0.605, 0.365], [0.620, 0.385], [0.630, 0.375]], "auto", 1.2, rDark)); // glove cuff
+  add(line(672, [[0.625, 0.38], [0.655, 0.43]], "auto", 0.7, k));
+  add(line(673, [[0.635, 0.40], [0.620, 0.42]], "auto", 0.7, k));
+
+  // ── METALLIC WRIST WEB-SHOOTER & TRIGGER ──
+  add(deco(k, q.ellipse(0.658, 0.428, 0.007, 0.006), "auto", 1.3));
+  add(line(674, [[0.654, 0.425], [0.662, 0.431]], "auto", 1.1, w)); // silver metal gleam
+
+  // ── ICONIC "THWIP" WEB-SHOOTING HAND GESTURE ──
+  // Palm base
+  add(deco(r, q.ellipse(0.670, 0.440, 0.015, 0.013), "auto", 1.3));
+  // Curled middle & ring fingers pressing palm trigger
+  add(line(675, [[0.668, 0.438], [0.676, 0.442], [0.672, 0.446]], "auto", 1.2, rDark));
+  // Extended index finger
+  add(...passes(r, 676, [[0.680, 0.434], [0.702, 0.420], [0.715, 0.412]], "auto", 1.3, 2));
+  // Extended pinky finger
+  add(...passes(r, 677, [[0.680, 0.446], [0.704, 0.458], [0.716, 0.462]], "auto", 1.3, 2));
+  // Extended cocked thumb
+  add(line(678, [[0.662, 0.435], [0.658, 0.422]], "auto", 1.2, r));
+
+  // ── DYNAMIC SHOOTING WEB STRAND SPOOLING FROM WRIST ──
+  add(...passes(w, 680, [[0.665, 0.430], [0.710, 0.425], [0.760, 0.418], [0.810, 0.410]], "auto", 1.4, 2));
+  add(line(681, [[0.665, 0.430], [0.705, 0.434], [0.755, 0.428], [0.805, 0.420]], "auto", 0.85, webLine));
+  // Web spiral burst around wrist emitter
+  add(deco(w, q.arc(0.675, 0.428, 0.012, 0.018, -1.8, 1.8, 8), "auto", 1.1));
+
+  // ══════════════════════════════════════════════════════════════
+  // 4. WAIST & LEGS: Spider Belt, Blue Tights & High Red Boots
+  // ══════════════════════════════════════════════════════════════
+  // Red Spider Belt with pointed buckle
+  add(...passes(r, 685, [[0.450, 0.528], [0.485, 0.540], [0.500, 0.548], [0.515, 0.540], [0.550, 0.528]], "torso", 1.6, 2));
+  add(line(686, [[0.452, 0.542], [0.500, 0.560], [0.548, 0.542]], "torso", 1.2, rDark));
+  add(line(687, [[0.475, 0.534], [0.485, 0.548]], "torso", 0.7, k));
+  add(line(688, [[0.525, 0.534], [0.515, 0.548]], "torso", 0.7, k));
+
+  // Blue spandex tights (muscular quadriceps contours)
+  // Back thigh & knee
+  add(...passes(b, 690, [[0.448, 0.55], [0.415, 0.63], [0.408, 0.72]], "auto", 1.5, 2));
+  add(line(691, [[0.455, 0.56], [0.435, 0.64], [0.430, 0.72]], "auto", 1.1, bDark));
+  // Front thigh & knee
+  add(...passes(b, 692, [[0.552, 0.55], [0.585, 0.63], [0.608, 0.72]], "auto", 1.5, 2));
+  add(line(693, [[0.545, 0.56], [0.565, 0.64], [0.585, 0.72]], "auto", 1.1, bDark));
+  // Comic shadow hatching on inner thighs
+  add(...strokes(bDark, hatch(694, [0.46, 0.57], [0.42, 0.72], 0.05, 0.90, -0.005, 0.014, 0.012), "auto", 0.65));
+  add(...strokes(bDark, hatch(695, [0.54, 0.57], [0.60, 0.72], 0.05, 0.90, 0.005, -0.014, 0.012), "auto", 0.65));
+  // Defined kneecaps (patella)
+  add(deco(b, q.arc(0.418, 0.730, 0.014, 0.010, -0.2, 3.14, 6), "auto", 1.2));
+  add(deco(b, q.arc(0.602, 0.730, 0.014, 0.010, -0.2, 3.14, 6), "auto", 1.2));
+
+  // ── HIGH RED SUPERHERO BOOTS WITH WEB LACING ──
+  // Back boot (chevron top collar, boot shaft, sole & tread)
+  add(...passes(r, 700, [[0.410, 0.75], [0.395, 0.83], [0.380, 0.93]], "auto", 1.6, 2));
+  add(line(701, [[0.395, 0.755], [0.410, 0.745], [0.425, 0.755]], "auto", 1.3, rDark)); // V-cut cuff
+  add(line(702, [[0.405, 0.76], [0.385, 0.92]], "auto", 0.7, k)); // vertical web line
+  add(line(703, [[0.398, 0.80], [0.415, 0.81]], "auto", 0.65, k)); // web arc
+  add(line(704, [[0.390, 0.86], [0.408, 0.87]], "auto", 0.65, k)); // web arc
+  add(...passes(rDark, 705, [[0.345, 0.93], [0.415, 0.93]], "auto", 1.6, 2)); // sole
+  add(line(706, [[0.345, 0.934], [0.415, 0.934]], "auto", 1.2, k));           // sole bottom
+
+  // Front boot (chevron top collar, boot shaft, sole & tread)
+  add(...passes(r, 710, [[0.595, 0.75], [0.612, 0.83], [0.630, 0.93]], "auto", 1.6, 2));
+  add(line(711, [[0.585, 0.755], [0.600, 0.745], [0.615, 0.755]], "auto", 1.3, rDark)); // V-cut cuff
+  add(line(712, [[0.600, 0.76], [0.622, 0.92]], "auto", 0.7, k)); // vertical web line
+  add(line(713, [[0.595, 0.80], [0.612, 0.81]], "auto", 0.65, k)); // web arc
+  add(line(714, [[0.605, 0.86], [0.622, 0.87]], "auto", 0.65, k)); // web arc
+  add(...passes(rDark, 715, [[0.595, 0.93], [0.665, 0.93]], "auto", 1.6, 2)); // sole
+  add(line(716, [[0.595, 0.934], [0.665, 0.934]], "auto", 1.2, k));           // sole bottom
+
+  return [...read, ...D];
+}
+
 const HULK_STANCE: Partial<Pose> = { armF: -0.05, elbowF: -1.75, armB: -1.2, elbowB: -1.9, thighF: 0.14, thighB: -0.14, lean: 0.06 };
 
 export const ROSTER: RosterEntry[] = [
@@ -1040,6 +1303,7 @@ export const ROSTER: RosterEntry[] = [
   { id: "skeleton", name: "Skeleton", blurb: "falls to bits, snaps back next to you", tier: 3, strokes: skeleton(), signature: "bones" },
   { id: "bodybuilder", name: "Bodybuilder", blurb: "hulking, huge arms, a leap across the arena", tier: 3, strokes: bodybuilder(), size: 1.2, stance: HULK_STANCE, signature: "leap" },
   { id: "phantom", name: "Phantom Delux", blurb: "gentleman thief, disappears in a flash", tier: 3, strokes: phantom(), signature: "phantom" },
+  { id: "spiderman", name: "Spider-Man", blurb: "wall-crawler, webs you up for 3 seconds", tier: 3, strokes: spiderman(), signature: "web" },
 ];
 
 export const rosterById = (id: string | null | undefined) => ROSTER.find((r) => r.id === id) ?? null;

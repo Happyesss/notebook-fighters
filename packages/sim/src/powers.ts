@@ -9,12 +9,12 @@ import type { Pt } from "@nf/shared";
 
 export type Element = "fire" | "water" | "lightning" | "ice";
 /** the big rivals' own specials: nobody draws these, the fighter comes with one */
-export type Signature = "pumpkin" | "bones" | "quake" | "leap" | "phantom";
+export type Signature = "pumpkin" | "bones" | "quake" | "leap" | "phantom" | "web";
 export type PowerKind = Element | "wings" | "shield" | "spikes" | Signature;
 export const ELEMENTS: Element[] = ["fire", "water", "lightning", "ice"];
 /** the powers a drawing can have (the signatures are not drawn) */
 export const POWER_KINDS: PowerKind[] = ["fire", "water", "lightning", "ice", "wings", "shield", "spikes"];
-export const SIGNATURES: Signature[] = ["pumpkin", "bones", "quake", "leap", "phantom"];
+export const SIGNATURES: Signature[] = ["pumpkin", "bones", "quake", "leap", "phantom", "web"];
 export const isSignature = (k: PowerKind | null | undefined): k is Signature => !!k && (SIGNATURES as string[]).includes(k);
 
 export type Shape = "bolt" | "zigzag" | "wave" | "drop" | "loop" | "line" | "curve";
@@ -125,6 +125,7 @@ export const POWER_INFO: Record<PowerKind, { name: string; special: string; pass
   quake: { name: "Ground shake", special: "Ground shake", passive: "a stomp sends a shockwave along the ground that staggers anyone standing on it: jump over it", cooldown: 5.2, word: "STOMP!" },
   leap: { name: "Mega leap", special: "Mega leap", passive: "a huge jump across the arena that lands in a smash: it hits anyone near the landing", cooldown: 6, word: "SMASH!" },
   phantom: { name: "Phase out", special: "Phase out", passive: "turns invisible and untouchable for a few seconds, slipping through attacks with spectral speed", cooldown: 5.5, word: "VANISH!" },
+  web: { name: "Web shot", special: "Web shot", passive: "leaps and fires a web that grabs the opponent: tangled for 3 seconds, unable to move or attack", cooldown: 6, word: "THWIP!" },
 };
 
 /** element counters: water douses fire, fire melts ice, ice freezes water, lightning shocks water */

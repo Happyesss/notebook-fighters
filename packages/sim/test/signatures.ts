@@ -33,7 +33,7 @@ const run = (sim: NotebookSim, n: number, me: (i: number) => PlayerInput = () =>
 };
 const at = (k: number, inp: Partial<PlayerInput>) => (i: number) => (i === k ? { ...IDLE, ...inp } : IDLE);
 
-for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["pehelwan", "quake"], ["bodybuilder", "leap"], ["phantom", "phantom"]] as const) {
+for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["pehelwan", "quake"], ["bodybuilder", "leap"], ["phantom", "phantom"], ["spiderman", "web"]] as const) {
   const sim = mk(id, 2);
   check(sim.fighters[1].special === kind, `${id}: own special ${POWER_INFO[kind].special} (not a drawn power), every ${sim.fighters[1].coolMax.toFixed(1)}s on Normal`);
 }
@@ -128,14 +128,36 @@ for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["peh
   check(f.hp === hp0, `player attack passed right through phased phantom (hp remained ${f.hp})`);
 }
 
+// Spider-Man: WEB SHOT leaps and shoots web, tangles opponent for 3 seconds
+{
+  const sim = mk("spiderman", 2.2);
+  const p = sim.fighters[0];
+  const s = sim.fighters[1];
+  let jumped = false;
+  run(sim, 20, undefined, at(0, { special: true }), () => {
+    if (s.airborne) jumped = true;
+  });
+  check(jumped, "spiderman: leaps into the air before shooting web");
+  // wait for the web projectile to reach the player
+  run(sim, 30);
+  check(p.webbed > 0, `spiderman: web hit player and tangled for ${p.webbed.toFixed(2)}s`);
+  // while webbed, player attempts to move and punch — should not be able to do either
+  const xBefore = p.x;
+  run(sim, 20, at(0, { punch: true, x: -1 }));
+  check(Math.abs(p.x - xBefore) < 1e-6 && p.anim.move !== "punch", `spiderman: webbed player cannot move or punch (x stayed ${p.x}, move ${p.anim.move})`);
+  // wait for the 3s of fight time (3 / 0.012 = 250 frames total) for web to expire
+  run(sim, 260);
+  check(p.webbed === 0, "spiderman: player is free after 3 seconds");
+}
+
 // Easy is gentler: longer cooldown; Hard the shortest
-for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom"] as const) {
+for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom", "spiderman"] as const) {
   const [e, n, h] = (["easy", "normal", "hard"] as const).map((d) => mk(id, 2, d).fighters[1].coolMax);
   check(e > n && n > h, `${id}: cooldown easy ${e.toFixed(1)}s > normal ${n.toFixed(1)}s > hard ${h.toFixed(1)}s`);
 }
 
 // the CPU uses them, but not all the time; and it's all deterministic
-for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom"] as const) {
+for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom", "spiderman"] as const) {
   const play = () => {
     const sim = new NotebookSim({ player: clean, rivalId: id, rivalPower: "auto", difficulty: "hard", countdown: 0 });
     let uses = 0;
