@@ -6,6 +6,7 @@
  * player whether the game is saved for offline play and how to install it.
  */
 import { useEffect, useState } from "react";
+import { Dialog } from "./dialog";
 
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
 const w = () => window as unknown as { __nfInstall?: InstallEvent | null };
@@ -73,4 +74,107 @@ export function OfflineHint({ compact = false }: { compact?: boolean }) {
       {!installed && !canInstall && !ios && !compact && <span className="install-other"> Install it from the browser menu to open it like an app.</span>}
     </p>
   );
+}
+
+export const INSTALL_SEEN_KEY = "nf:install-seen";
+
+/** whether the game can be installed here: already installed, the browser's own prompt is ready, or iPhone (Share → Add to Home Screen) */
+export function useInstall() {
+  const [canInstall, setCanInstall] = useState(false);
+  const [ios, setIos] = useState(false);
+  const [installed, setInstalled] = useState(true); // hidden until we know
+  useEffect(() => {
+    const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+    setInstalled(!!standalone);
+    setIos(/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+    setCanInstall(!!w().__nfInstall);
+    const onInstall = () => setCanInstall(!!w().__nfInstall);
+    const onInstalled = () => {
+      setInstalled(true);
+      setCanInstall(false);
+    };
+    window.addEventListener("nf:install", onInstall);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("nf:install", onInstall);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+  const install = async () => {
+    const ev = w().__nfInstall;
+    if (!ev) return false;
+    w().__nfInstall = null;
+    setCanInstall(false);
+    await ev.prompt().catch(() => {});
+    return true;
+  };
+  return { installed, canInstall, ios, install };
+}
+
+/** the "Install" pill beside "How to play": installs straight away when the browser allows, otherwise opens the steps */
+export function InstallButton({ onOpen }: { onOpen: () => void }) {
+  const { installed } = useInstall();
+  if (installed) return null;
+  return (
+    <button type="button" className="guide-btn install-pill" data-testid="install-open" aria-label="Install the game" title="Install the game" onClick={onOpen}>
+      <span className="guide-q" aria-hidden="true">⇩</span>
+      <span className="guide-btn-label">Install</span>
+    </button>
+  );
+}
+
+/** the popup a new visitor sees once: install the game like an app (one tap where the browser allows it, else the steps) */
+export function InstallDialog({ onClose }: { onClose: () => void }) {
+  const { canInstall, ios, install } = useInstall();
+  return (
+    <Dialog label="Install Notebook Fighters" onClose={onClose} className="install-dlg" testid="install-dialog">
+      <h2>Install Notebook Fighters</h2>
+      <p>Put the game on your device like an app: it opens full screen and works offline.</p>
+      {canInstall ? (
+        <button
+          type="button"
+          className="install-btn"
+          data-testid="install-confirm"
+          data-autofocus
+          onClick={async () => {
+            await install();
+            onClose();
+          }}
+        >
+          Install app
+        </button>
+      ) : ios ? (
+        <p className="install-steps">On iPhone / iPad: tap the <b>Share</b> button, then <b>Add to Home Screen</b>.</p>
+      ) : (
+        <p className="install-steps">Open the browser menu (⋮ or the install icon in the address bar) and choose <b>Install app</b> or <b>Add to Home Screen</b>.</p>
+      )}
+      <button type="button" className="install-later" data-testid="install-later" onClick={onClose}>
+        Not now
+      </button>
+    </Dialog>
+  );
+}
+
+/** opens the install popup once on a first visit (not for tools, like the guide), after `blocked` (the guide) is closed */
+export function useFirstVisitInstall(open: () => void, blocked: boolean) {
+  useEffect(() => {
+    if (blocked) return;
+    try {
+      if (localStorage.getItem(INSTALL_SEEN_KEY)) return;
+      if (navigator.webdriver && localStorage.getItem("nf:install-auto") !== "1") return;
+      const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+      if (standalone) return;
+      // give the browser a moment to offer its install prompt, and a new visitor a moment to look around
+      const t = setTimeout(() => {
+        try {
+          localStorage.setItem(INSTALL_SEEN_KEY, "1");
+        } catch {}
+        open();
+      }, 1200);
+      return () => clearTimeout(t);
+    } catch {
+      // no storage: never auto-open
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocked]);
 }

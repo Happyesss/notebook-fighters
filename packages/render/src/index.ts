@@ -692,6 +692,25 @@ export class NotebookView {
         ctx.moveTo(at.x - dir * r * 1.2, at.y);
         ctx.lineTo(at.x + dir * r * 1.6, at.y);
         ctx.stroke();
+      } else if (p.kind === "blade") {
+        // a spinning four-pointed throwing star
+        ctx.save();
+        ctx.translate(at.x, at.y);
+        ctx.rotate(now * 22 * dir);
+        ctx.strokeStyle = "#3a3470";
+        ctx.fillStyle = "rgba(58,52,112,0.35)";
+        ctx.lineWidth = Math.max(1.6, S * 0.008);
+        ctx.beginPath();
+        for (let k = 0; k < 8; k++) {
+          const a = (k * Math.PI) / 4;
+          const rr = k % 2 ? r * 0.5 : r * 1.7;
+          if (k) ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+          else ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       } else if (p.kind === "web") {
         // Spider-Man web projectile: spinning web net with radial spokes and concentric rings
         const spin = now * 14 * dir;
@@ -862,8 +881,27 @@ export class NotebookView {
     const p = toScreen(e);
     // a new swing or blow retires the previous hit word, so "CRASH!" doesn't hang over the next move
     if (e.kind === "special" || e.kind === "clash") {
-      const COL: Record<string, string> = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c" };
-      const color = e.kind === "clash" ? e.color : COL[e.power];
+      const COL: Record<string, string> = {
+        fire: "#e07a2f",
+        water: "#1d4f89",
+        lightning: "#c4962c",
+        ice: "#3f7fbf",
+        wings: "#2a241c",
+        shield: "#2a241c",
+        spikes: "#2a241c",
+        bite: "#a3322b",
+        phantom: "#8e5bc9",
+        web: "#cccccc",
+        pumpkin: "#e07a2f",
+        bones: "#2a241c",
+        quake: "#8a5a32",
+        leap: "#2a241c",
+        haymaker: "#c23b32",
+        flykick: "#2a241c",
+        blades: "#3a3470",
+        slash: "#5b6b7a",
+      };
+      const color = e.kind === "clash" ? e.color : (COL[e.power] ?? "#c23b32");
       const n = e.kind === "clash" ? 10 : 7;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;

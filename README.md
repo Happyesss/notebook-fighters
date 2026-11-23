@@ -72,9 +72,14 @@ The four heavyweights bring **their own special** instead of drawing one to matc
 | 🎃 **Halloween** (pumpkin head, ragged cloak) | **Throw pumpkin** | a pumpkin lobbed in an arc: it splats for damage and a short stagger |
 | 💀 **Skeleton** (skull, ribs, knobbly bones) | **Bone scatter** | falls into a pile of bones (the next hit passes through), then snaps back together a step closer with a bony strike |
 | **Pehelwan** | **Ground shake** | a stomp sends a shockwave along the ground: it staggers you if you're standing on it, jump over it; the screen shakes |
-| **Bodybuilder** | **Mega leap** | a huge jump across the arena that lands in a smash on anyone near the landing |
+| **Hulk** (was Bodybuilder) | **Mega leap** | a huge jump across the arena that lands in a crushing smash (50+ damage) on anyone near the landing |
+| **Dog** | **Dog bite** | lunges in for a savage bite |
+| **Boxer** | **Haymaker** | one huge wound-up punch, enormous damage if it lands |
+| **Karate guy** | **Flying kick** | a heavy kick from the air |
+| **Ninja** | **Blade throw** | springs backwards and flings three blades (and he is faster than everyone) |
+| **Swordsman** | **Sword slash** | steps in and slices for big damage |
 
-The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per rival (all body types, Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Bodybuilder 46 / 20 / 16 %: the Hulk is still the hardest.
+The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per rival (all body types, Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Hulk 46 / 20 / 16 %: the Hulk is still the hardest.
 
 <img src="docs/media/gallery/06-halloween-pumpkin-throw.png" width="49%" alt="Halloween throws a pumpkin"> <img src="docs/media/gallery/07-skeleton-bone-scatter.png" width="49%" alt="Skeleton: bone scatter"><br><img src="docs/media/gallery/09-pehelwan-ground-shake.png" width="49%" alt="Pehelwan: ground shake"> <img src="docs/media/gallery/08-hulk-mega-leap.png" width="49%" alt="The pencil Hulk's mega leap">
 

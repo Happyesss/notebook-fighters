@@ -8,7 +8,7 @@ import { MIN_STEP2, PENCILS, clamp01, hasInk, paintInk, type Pt, type Stroke } f
 import { SketchModal } from "./sketch-modal";
 import { MAX_FIGHTERS, emptyBook, loadBook, newId, saveBook, strokesOf, type FighterBook } from "./fighters";
 import { LEVELS, RivalCard, RivalPicker, RivalThumb } from "./rivals";
-import { OfflineHint } from "./offline";
+import { OfflineHint, InstallButton, InstallDialog, useFirstVisitInstall } from "./offline";
 import { GuideButton, HowToPlay, useFirstVisitGuide } from "./guide";
 
 const RIVAL_KEY = "nf:rival";
@@ -30,6 +30,8 @@ export function HomeClient() {
   const [rival, setRival] = useState<RosterId | "auto">("auto");
   const [level, setLevel] = useState<Difficulty>("normal");
   const [guide, setGuide] = useState(false);
+  const [installDlg, setInstallDlg] = useState(false);
+  useFirstVisitInstall(() => setInstallDlg(true), guide);
   useFirstVisitGuide(() => setGuide(true));
   /** which fighter (id) is open on the big drawing pad */
   const [big, setBig] = useState<string | null>(null);
@@ -146,6 +148,7 @@ export function HomeClient() {
           <div className="kicker-row">
             <p className="kicker">The notebook</p>
             <GuideButton onOpen={() => setGuide(true)} />
+            <InstallButton onOpen={() => setInstallDlg(true)} />
           </div>
           <h1>Draw your fighter</h1>
         </div>
@@ -295,6 +298,7 @@ export function HomeClient() {
         </div>
       </section>
       {guide && <HowToPlay onClose={() => setGuide(false)} />}
+      {installDlg && <InstallDialog onClose={() => setInstallDlg(false)} />}
       {/* p2 is only read by the 2-player duel; keep it referenced so the selection is visible to tests */}
       <span hidden data-testid="sel" data-p1={book.fighters.findIndex((f) => f.id === book.p1)} data-p2={book.fighters.findIndex((f) => f.id === book.p2)} data-n={book.fighters.length} data-p2ink={hasInk(p2) ? "1" : "0"} />
     </main>

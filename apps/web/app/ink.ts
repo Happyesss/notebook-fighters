@@ -5,7 +5,7 @@
  */
 export type Pt = { x: number; y: number };
 /** points are normalised 0..1 over the 3:4 drawing box; w is the line weight (1 = pencil) */
-export type Stroke = { color: string; points: Pt[]; w?: number; deco?: "head" | "torso" | "auto" };
+export type Stroke = { color: string; points: Pt[]; w?: number; deco?: "head" | "torso" | "weapon" | "auto" };
 
 export const PENCILS = [
   { name: "Pencil", color: "#2a241c" },

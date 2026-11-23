@@ -948,12 +948,16 @@ export function inferRig(strokes: InkStroke[], mirror = false): Rig | null {
     const pts = resample(d.points.map(toFig), 0.012).map(shift);
     const all = Array.from({ length: BONES.length }, (_, k) => k).filter((k) => k !== 1);
     const head = d.deco === "head";
-    const candidates = d.deco === "torso" ? [0] : all;
-    rig.strokes.push(
-      head
-        ? bindStroke({ idx: -1, color: d.color, w: d.w, pts, part: "head", loop: false, cv: 0, size: 0, arc: 0, center: pts[0], label: "costume" }, rig, ext, headCenterFig, headR)
-        : { color: d.color, part: "torso", width: d.w ?? 1, label: "costume", points: pts.map((p) => bindPoint(p, ext, candidates, false)) },
-    );
+    const weapon = d.deco === "weapon" && rig.weapon;
+    const weaponBone = rig.weapon?.limb === "armB" ? 3 : 5;
+    if (head) {
+      rig.strokes.push(bindStroke({ idx: -1, color: d.color, w: d.w, pts, part: "head", loop: false, cv: 0, size: 0, arc: 0, center: pts[0], label: "costume" }, rig, ext, headCenterFig, headR));
+    } else if (weapon) {
+      rig.strokes.push(bindStroke({ idx: -1, color: d.color, w: d.w, pts, part: "extra", bone: weaponBone, loop: false, cv: 0, size: 0, arc: 0, center: pts[0], label: "costume" }, rig, ext, headCenterFig, headR));
+    } else {
+      const candidates = d.deco === "torso" ? [0] : all;
+      rig.strokes.push({ color: d.color, part: "torso", width: d.w ?? 1, label: "costume", points: pts.map((p) => bindPoint(p, ext, candidates, false)) });
+    }
   }
   return rig;
 }

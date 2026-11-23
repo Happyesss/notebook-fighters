@@ -1241,6 +1241,12 @@ html[data-input="touch"] .keys-legend { display: none !important; }
 }
 .guide-q { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: #1d4f89; color: #fffaf1; font-family: Georgia, serif; font-weight: bold; font-size: 0.95rem; }
 .guide-btn-label:empty { display: none; }
+.install-pill { border-color: #2a241c; color: #2a241c; }
+.install-pill .guide-q { background: #2a241c; }
+.install-dlg { max-width: 26rem; text-align: center; }
+.install-dlg h2 { margin: 0 0 0.4rem; }
+.install-dlg .install-btn { font: inherit; font-size: 1.1rem; border: 1.5px solid #1d4f89; color: #fffaf1; background: #1d4f89; border-radius: 8px; padding: 0.3rem 1.2rem; cursor: pointer; min-height: 2.4rem; }
+.install-dlg .install-later { display: block; margin: 0.8rem auto 0; font: inherit; background: none; border: 0; color: #5b4a3a; text-decoration: underline; cursor: pointer; min-height: 2rem; }
 .guide-btn:has(.guide-btn-label:empty) { padding: 0.2rem; }
 .fight-guide { pointer-events: auto; flex: none; min-height: 2.1rem; margin-right: auto; margin-left: -0.3rem; }
 @media (max-width: 700px) {

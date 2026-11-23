@@ -8,7 +8,7 @@ export type Pt = { x: number; y: number };
  * ignores it, so it changes neither the reading nor the stats. "head" rides the head, "torso" the body,
  * "auto" follows whichever bone each point is nearest (limb outlines).
  */
-export type InkStroke = { color: string; points: Pt[]; w?: number; deco?: "head" | "torso" | "auto" };
+export type InkStroke = { color: string; points: Pt[]; w?: number; deco?: "head" | "torso" | "weapon" | "auto" };
 
 export type PlayerInput = {
   /** -1 left, 0 none, 1 right */

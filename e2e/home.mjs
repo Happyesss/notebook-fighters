@@ -261,7 +261,7 @@ for (const dev of DEVICES) {
   }));
   await p.waitForTimeout(200);
   await p.screenshot({ path: `${OUT}/character_card_${slug(dev)}.png` });
-  check(cc.name === "Bodybuilder" && cc.hp > 50 && cc.rows >= 7 && cc.moves >= 3 && /special|none|★/i.test(cc.special), `${dev}: Bodybuilder's card: HP ${cc.hp}, ${cc.rows} stat rows, ${cc.moves} moves, special "${cc.special.trim().slice(0, 50)}"`);
+  check(cc.name === "Hulk" && cc.hp > 50 && cc.rows >= 7 && cc.moves >= 3 && /special|none|★/i.test(cc.special), `${dev}: Hulk's card: HP ${cc.hp}, ${cc.rows} stat rows, ${cc.moves} moves, special "${cc.special.trim().slice(0, 50)}"`);
   if (!t.touch) {
     await p.keyboard.press("Escape");
     await p.waitForTimeout(150);

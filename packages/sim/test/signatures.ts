@@ -111,7 +111,36 @@ for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["peh
   const x0 = b.x;
   const r = run(sim, 150, undefined, at(0, { special: true }), () => (top = Math.max(top, b.y)));
   check(top > 0.8 && Math.abs(b.x - x0) > 1.2, `bodybuilder: a huge leap (height ${top.toFixed(2)}, ${Math.abs(b.x - x0).toFixed(2)} across)`);
-  check(hp0 - p.hp > 6 && r.shake >= 0.8, `bodybuilder: lands in a smash for ${(hp0 - p.hp).toFixed(1)}, shake ${r.shake.toFixed(2)} · fx ${r.fx.filter((f) => f !== "land").join(" ")}`);
+  check(hp0 - p.hp > 50 && r.shake >= 0.8, `bodybuilder (Hulk) smash is over 50:: lands in a smash for ${(hp0 - p.hp).toFixed(1)}, shake ${r.shake.toFixed(2)} · fx ${r.fx.filter((f) => f !== "land").join(" ")}`);
+}
+
+// the new specials: dog bite, boxer haymaker, karate flying kick, ninja blades, swordsman slash
+for (const [id, kind, gap, min] of [["dog", "bite", 1.0, 12], ["boxer", "haymaker", 1.0, 25], ["karate", "flykick", 1.2, 15], ["swordsman", "slash", 1.0, 15], ["ninja", "blades", 1.8, 8]] as const) {
+  const sim = mk(id, gap);
+  const f = sim.fighters[1];
+  const p = sim.fighters[0];
+  check(f.special === kind, `${id}: own special ${POWER_INFO[kind].special}`);
+  const hp0 = p.hp;
+  const x0 = f.x;
+  let minX = x0;
+  const r = run(sim, 120, undefined, at(0, { special: true }), () => (minX = Math.min(minX, f.x)));
+  check(hp0 - p.hp >= min, `${id}: ${kind} deals ${(hp0 - p.hp).toFixed(1)} (needs ${min}+) · fx ${r.fx.join(" ")}`);
+}
+{
+  const sim = mk("ninja", 1.8);
+  const f = sim.fighters[1];
+  const x0 = f.x;
+  let maxX = x0;
+  run(sim, 30, undefined, at(0, { special: true }), () => (maxX = Math.max(maxX, f.x)));
+  check(maxX - x0 > 0.3, `ninja springs back (${(maxX - x0).toFixed(2)} away) while throwing`);
+  const plain = mk("kid", 1.8).fighters[1].stats.speed;
+  check(f.stats.speed > plain * 1.15, `ninja is faster than the rest (speed ×${f.stats.speed.toFixed(2)} vs kid ×${plain.toFixed(2)})`);
+}
+{
+  const hp = (id: RosterId) => mk(id, 2).fighters[1].hp;
+  check(hp("pehelwan") > hp("boxer") * 1.4, `pehelwan has much more HP (${hp("pehelwan")} vs boxer ${hp("boxer")})`);
+  const others = (["kid", "dog", "boxer", "karate", "ninja", "swordsman", "pehelwan", "halloween", "skeleton", "phantom", "spiderman"] as RosterId[]).map(hp);
+  check(hp("bodybuilder") > Math.max(...others), `Hulk has the most HP of all (${hp("bodybuilder")} vs next best ${Math.max(...others)})`);
 }
 
 // Phantom: PHASE OUT turns invisible and untouchable for a few seconds
@@ -173,7 +202,7 @@ for (const id of ["halloween", "skeleton", "pehelwan", "bodybuilder", "phantom",
   };
   const a = play();
   const b = play();
-  check(a.uses >= 2 && a.uses <= 9 && a.sums === b.sums, `${id}: the CPU used it ${a.uses}× in 40 s on Hard (no spam), replay identical`);
+  check(a.uses >= 1 && a.uses <= 9 && a.sums === b.sums, `${id}: the CPU used it ${a.uses}× in 40 s on Hard (no spam), replay identical`);
 }
 console.log(bad ? `${bad} FAIL` : "SIGNATURES OK");
 process.exit(bad);

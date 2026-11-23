@@ -22,6 +22,9 @@ export type RosterEntry = {
   stance?: Partial<Pose>;
   /** its own special (instead of drawing itself a power to match yours) */
   signature?: Signature;
+  /** multipliers on top of the usual rival strength (hit points, walking speed) */
+  hpMult?: number;
+  speedMult?: number;
 };
 
 function pencil(seed: number) {
@@ -65,7 +68,7 @@ const thick = (color: string, pts: [number, number][], n: number, off: number, s
   });
 
 /** a costume line: drawn and skinned with the fighter, never read (see InkStroke.deco) */
-const deco = (color: string, points: Pt[], where: "head" | "torso" | "auto" = "auto", w = 1): InkStroke => ({ color, points, deco: where, w });
+const deco = (color: string, points: Pt[], where: "head" | "torso" | "weapon" | "auto" = "auto", w = 1): InkStroke => ({ color, points, deco: where, w });
 /** a muscle bulge drawn alongside the bone a→b (side +1 / −1 picks which side), peaking amp away from it */
 function bulge(seed: number, a: [number, number], b: [number, number], amp: number, side: 1 | -1, from = 0.08, to = 0.92): Pt[] {
   const p = pencil(seed);
@@ -101,246 +104,163 @@ const twice = (color: string, pts: Pt[], again: Pt[]): InkStroke[] => [
   { color, points: again },
 ];
 
-/** a point on the bone a→b at t, pushed o off it (positive o: the left of a→b with y down) */
-function onBone(a: [number, number], b: [number, number], t: number, o: number): [number, number] {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const L = Math.hypot(dx, dy) || 1;
-  return [a[0] + dx * t + (dy / L) * o, a[1] + dy * t - (dx / L) * o];
-}
-/** a muscle contour along a bone: base offset, swelling by amp in the middle (a pencil line, gone over `passes` times) */
-function muscle(_seed: number, a: [number, number], b: [number, number], side: 1 | -1, t0: number, t1: number, base: number, amp: number, peak = 0.5): [number, number][] {
-  const pts: [number, number][] = [];
-  for (let i = 0; i <= 12; i++) {
-    const u = i / 12;
-    const t = t0 + (t1 - t0) * u;
-    const sw = u < peak ? Math.sin((Math.PI / 2) * (u / peak)) : Math.cos((Math.PI / 2) * ((u - peak) / (1 - peak)));
-    pts.push(onBone(a, b, t, side * (base + amp * Math.max(0, sw))));
-  }
-  return pts;
-}
-/** pencil hatching: short parallel slanted strokes along a bone a→b, between offsets o0..o1 from it
- * (`gap` is the spacing of the strokes in drawing units, `slant` how far each stroke leans along the bone) */
-function hatch(seed: number, a: [number, number], b: [number, number], t0: number, t1: number, o0: number, o1: number, gap = 0.011, slant = 1.1): Pt[][] {
-  return shadeLines(seed, a, b, t0, t1, () => o0, () => o1, gap, slant);
-}
-function shadeLines(seed: number, a: [number, number], b: [number, number], t0: number, t1: number, in0: (u: number) => number, in1: (u: number) => number, gap: number, slant: number): Pt[][] {
-  const BL = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-  const n = Math.max(2, Math.round((BL * Math.abs(t1 - t0)) / gap));
-  const p = pencil(seed);
-  const out: Pt[][] = [];
-  for (let i = 0; i <= n; i++) {
-    const u = (i + 0.15 * Math.sin(seed + i * 2.3)) / n;
-    const t = t0 + (t1 - t0) * u;
-    const o0 = in0(u);
-    const o1 = in1(u);
-    const dt = (slant * Math.abs(o1 - o0)) / BL;
-    const A = onBone(a, b, t, o0);
-    const B = onBone(a, b, t + dt, o1);
-    out.push(p.path([A, [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], B], 0.0012));
-  }
-  return out;
-}
-/** shading inside a muscle contour (same shape args as `muscle`): strokes between fractions f0..f1 of its offset, over u0..u1 */
-function shade(seed: number, a: [number, number], b: [number, number], side: 1 | -1, t0: number, t1: number, base: number, amp: number, peak: number, f0: number, f1: number, u0 = 0.1, u1 = 0.9, gap = 0.014, slant = 1.1): Pt[][] {
-  const m = (u: number) => base + amp * Math.max(0, u < peak ? Math.sin((Math.PI / 2) * (u / peak)) : Math.cos((Math.PI / 2) * ((u - peak) / (1 - peak))));
-  const U = (u: number) => u0 + (u1 - u0) * u;
-  return shadeLines(seed, a, b, t0 + (t1 - t0) * u0, t0 + (t1 - t0) * u1, (u) => side * m(U(u)) * f0, (u) => side * m(U(u)) * f1, gap, slant);
-}
-const strokes = (color: string, lines: Pt[][], where: "head" | "torso" | "auto", w: number): InkStroke[] => lines.map((pts) => deco(color, pts, where, w));
-/** the same line gone over a few times by a heavy pencil: a dark contour, then lighter wobbly re-traces */
-function passes(color: string, seed: number, pts: [number, number][], where: "head" | "torso" | "auto", w: number, n = 2): InkStroke[] {
-  return Array.from({ length: n }, (_, k) => deco(color, pencil(seed + k * 17).path(pts.map(([x, y]) => [x + (k ? 0.003 * Math.sin(seed + k) : 0), y + (k ? 0.003 * Math.cos(seed * 3 + k) : 0)] as [number, number]), 0.0035), where, k === 0 ? w : w * 0.55));
-}
-const mirror = (pts: [number, number][]): [number, number][] => pts.map(([x, y]) => [1 - x, y]);
-
 /**
- * The Bodybuilder: a hulking brute scribbled with a heavy green-graphite pencil. The skeleton lines
- * (what the reader rigs and scores) stay exactly as before but are drawn as faint construction lines;
- * the muscles, face and torn shorts are costume (deco) lines skinned onto those bones, so the reading,
- * the stats and every animation are unchanged while the drawing looks like a massive hunched hulk.
+ * The Hulk (formerly Bodybuilder): a hulking brute drawn in heavy comic green graphite.
+ * Massive trapezius, furious jaw and brow, snarling mouth, sculpted slab pecs and 6-pack abs,
+ * boulder deltoids, giant clenched fists, shredded purple torn shorts and heavy bare feet.
+ * Stands in a natural, powerful fighting stance with arms at his sides.
  */
 function bodybuilder(): InkStroke[] {
-  // vivid green-graphite palette: deep muscular hulk green, dark contour shadows, highlight ridges & royal purple shorts
-  const c = "#2d5222";
-  const cDark = "#183212";
-  const cLight = "#4c8238";
-  const shorts = "#673a94";
-  const shortsDark = "#452269";
-  const white = "#eef4ea";
+  const c = "#26541f";       // deep comic green
+  const cDark = "#163312";   // dark ink shadow / contour
+  const cLight = "#4ea03b";  // muscle highlight green
+  const shorts = "#6c389e";  // classic purple torn shorts
+  const shortsDark = "#431e68";
+  const white = "#f0f6ec";
+  const hair = "#122010";
+
   const p = pencil(21);
-  // ---- the read skeleton (unchanged geometry), drawn light like a sketch's construction lines
+  const q = pencil(22);
+  const q2 = pencil(23);
+
+  // ── READ SKELETON: heavy biped with natural grounded ready arms (not lifted!) ──
   const read: InkStroke[] = [
-    { color: c, points: p.ellipse(0.5, 0.145, 0.06, 0.065), w: 0.62 },
-    ...weigh(0.16, thick(c, [[0.5, 0.215], [0.5, 0.56]], 3, 0.014, 210)),
-    ...weigh(0.16, thick(c, [[0.5, 0.29], [0.37, 0.36], [0.33, 0.24]], 3, 0.011, 220)),
-    ...weigh(0.16, thick(c, [[0.5, 0.29], [0.64, 0.35], [0.69, 0.24]], 3, 0.011, 230)),
-    ...weigh(0.16, twice(c, p.path([[0.5, 0.56], [0.42, 0.74], [0.4, 0.93]]), pencil(24).path([[0.512, 0.56], [0.432, 0.74], [0.41, 0.93]]))),
-    ...weigh(0.16, twice(c, p.path([[0.5, 0.56], [0.59, 0.74], [0.62, 0.93]]), pencil(25).path([[0.488, 0.56], [0.578, 0.74], [0.608, 0.93]]))),
-    ...weigh(0.16, [{ color: c, points: p.arc(0.5, 0.3, 0.1, 0.07, 0.25, 2.9, 14) }, { color: c, points: pencil(26).arc(0.5, 0.305, 0.095, 0.065, 0.3, 2.85, 14) }]),
+    { color: c, points: p.ellipse(0.5, 0.145, 0.062, 0.068), w: 1.2 },
+    ...thick(c, [[0.5, 0.215], [0.5, 0.56]], 2, 0.008, 210),
+    ...thick(c, [[0.5, 0.29], [0.38, 0.38], [0.33, 0.47]], 2, 0.008, 220),
+    ...thick(c, [[0.5, 0.29], [0.62, 0.38], [0.67, 0.46]], 2, 0.008, 230),
+    ...thick(c, [[0.5, 0.56], [0.41, 0.74], [0.37, 0.93]], 2, 0.008, 240),
+    ...thick(c, [[0.5, 0.56], [0.60, 0.74], [0.64, 0.93]], 2, 0.008, 250),
+    // barrel chest bulk
+    { color: c, points: p.arc(0.5, 0.31, 0.09, 0.065, 0.25, 2.9, 14) },
   ];
-  // bones (drawing coordinates, facing +x: the front arm and leg are on the right)
-  const sh: [number, number] = [0.5, 0.29];
-  const eB: [number, number] = [0.37, 0.36], hB: [number, number] = [0.33, 0.24];
-  const eF: [number, number] = [0.64, 0.35], hF: [number, number] = [0.69, 0.24];
-  const hip: [number, number] = [0.5, 0.56];
-  const kB: [number, number] = [0.42, 0.74], fB: [number, number] = [0.4, 0.93];
-  const kF: [number, number] = [0.59, 0.74], fF: [number, number] = [0.62, 0.93];
-  const D: InkStroke[] = [];
-  const add = (...s: InkStroke[]) => D.push(...s);
-  const line = (seed: number, pts: [number, number][], where: "head" | "torso" | "auto", w: number, col = c) => deco(col, pencil(seed).path(pts, 0.002), where, w);
-  const both = (seed: number, pts: [number, number][], where: "torso" | "auto", w: number, n = 2, col = c) => add(...passes(col, seed, pts, where, w, n), ...passes(col, seed + 500, mirror(pts), where, w, n));
-  const H = 0.6; // hatching lead
 
-  // ---- HEAD & FACE: square jaw with chin cleft, furious scowling brow, glowing furious eyes, gritted fangs, wild hair
-  // chiseled jawline with cleft chin
-  add(...passes(cDark, 401, [[0.442, 0.146], [0.446, 0.186], [0.466, 0.207], [0.485, 0.213], [0.5, 0.208], [0.515, 0.213], [0.534, 0.207], [0.554, 0.186], [0.558, 0.146]], "head", 1.5));
-  add(line(402, [[0.5, 0.202], [0.5, 0.213]], "head", 0.9, cDark)); // chin cleft
-  // heavy angled brow ridges sloping down in rage
-  add(...passes(cDark, 403, [[0.444, 0.112], [0.472, 0.122], [0.498, 0.142]], "head", 2.2));
-  add(...passes(cDark, 404, [[0.556, 0.112], [0.528, 0.122], [0.502, 0.142]], "head", 2.2));
-  // furious white eyes with dark pupils
-  add(line(405, [[0.463, 0.136], [0.488, 0.145], [0.466, 0.149], [0.463, 0.136]], "head", 1.1, white));
-  add(line(406, [[0.537, 0.136], [0.512, 0.145], [0.534, 0.149], [0.537, 0.136]], "head", 1.1, white));
-  add(line(407, [[0.473, 0.140], [0.477, 0.143]], "head", 1.5, cDark));
-  add(line(408, [[0.527, 0.140], [0.523, 0.143]], "head", 1.5, cDark));
-  // flared sneering nose with nostrils
-  add(line(409, [[0.5, 0.142], [0.490, 0.160], [0.510, 0.160], [0.5, 0.142]], "head", 0.95, cDark));
-  add(line(410, [[0.493, 0.158], [0.491, 0.161]], "head", 1.2, cDark), line(411, [[0.507, 0.158], [0.509, 0.161]], "head", 1.2, cDark));
-  // roaring gritted mouth: dark mouth cavity, white teeth row, tooth separators
-  add(deco(cDark, scribble(412, 0.462, 0.538, 0.170, 0.194, 4), "head", 0.85));
-  add(line(413, [[0.464, 0.172], [0.536, 0.172], [0.536, 0.193], [0.464, 0.193], [0.464, 0.172]], "head", 1.2, white));
-  add(line(414, [[0.464, 0.1825], [0.536, 0.1825]], "head", 0.85, cDark));
-  for (const [k, x] of [0.476, 0.488, 0.500, 0.512, 0.524].entries()) add(line(415 + k, [[x, 0.173], [x, 0.192]], "head", 0.75, cDark));
-  // wild, jagged barbarian hair with volume and highlight tufts
-  add(...passes(cDark, 420, [[0.440, 0.106], [0.446, 0.068], [0.462, 0.092], [0.476, 0.056], [0.492, 0.088], [0.505, 0.052], [0.518, 0.086], [0.534, 0.058], [0.548, 0.092], [0.560, 0.068], [0.560, 0.108]], "head", 1.4));
-  add(line(421, [[0.448, 0.094], [0.470, 0.076], [0.490, 0.092], [0.510, 0.074], [0.530, 0.090], [0.552, 0.080]], "head", 0.9, cLight));
-  add(line(422, [[0.435, 0.14], [0.444, 0.165]], "head", 0.85, cDark), line(423, [[0.565, 0.14], [0.556, 0.165]], "head", 0.85, cDark)); // ear outlines
+  const D: InkStroke[] = [
+    // ── WILD MESSY HULK HAIR ──
+    deco(hair, q.path([[0.43, 0.11], [0.44, 0.065], [0.465, 0.085], [0.495, 0.052], [0.525, 0.082], [0.555, 0.06], [0.57, 0.105], [0.555, 0.13]]), "head", 1.6),
+    deco(hair, q2.path([[0.445, 0.075], [0.475, 0.055], [0.51, 0.072], [0.54, 0.052], [0.565, 0.08]]), "head", 1.3),
+    deco(hair, q.path([[0.435, 0.115], [0.46, 0.10], [0.485, 0.115], [0.515, 0.10], [0.54, 0.115], [0.565, 0.11]]), "head", 1.2),
 
-  // ---- TRAPS & NECK: mountainous trapezius muscles flanking the head, neck tendons
-  both(430, [[0.462, 0.195], [0.456, 0.222], [0.448, 0.245]], "torso", 1.35, 2, cDark);
-  both(431, [[0.448, 0.165], [0.430, 0.192], [0.400, 0.215], [0.368, 0.235], [0.342, 0.254], [0.328, 0.272]], "auto", 1.6, 2, cDark);
-  both(432, [[0.442, 0.180], [0.415, 0.210], [0.380, 0.236]], "auto", 0.85, 1, cLight); // trap highlight ridge
-  add(...strokes(c, hatch(433, [0.446, 0.18], [0.36, 0.25], 0.05, 0.9, -0.002, 0.016, 0.012), "auto", H), ...strokes(c, hatch(933, [0.554, 0.18], [0.64, 0.25], 0.05, 0.9, 0.002, -0.016, 0.012), "auto", H));
+    // ── SQUARE JAW & CHIN ──
+    deco(cDark, q.path([[0.438, 0.145], [0.442, 0.185], [0.465, 0.215], [0.50, 0.222], [0.535, 0.215], [0.558, 0.185], [0.562, 0.145]]), "head", 1.8),
+    deco(cDark, q2.path([[0.44, 0.15], [0.445, 0.185], [0.47, 0.212], [0.50, 0.218], [0.53, 0.212], [0.555, 0.185], [0.56, 0.15]]), "head", 1.2),
+    // chin cleft
+    deco(cDark, q.path([[0.495, 0.214], [0.50, 0.222], [0.505, 0.214]]), "head", 1.2),
 
-  // ---- SHOULDERS (DELTOIDS): massive 3-headed deltoid boulder caps
-  add(...passes(cDark, 440, [[0.36, 0.25], [0.325, 0.268], [0.306, 0.298], [0.310, 0.338], [0.336, 0.364]], "auto", 1.55));
-  add(...passes(cDark, 441, [[0.64, 0.25], [0.675, 0.268], [0.694, 0.298], [0.690, 0.338], [0.664, 0.364]], "auto", 1.55));
-  // deltoid head separation cuts (anterior / lateral / posterior heads)
-  add(line(442, [[0.345, 0.262], [0.335, 0.305], [0.348, 0.342]], "auto", 0.9, cDark), line(443, [[0.655, 0.262], [0.665, 0.305], [0.652, 0.342]], "auto", 0.9, cDark));
-  add(line(444, [[0.332, 0.280], [0.322, 0.315]], "auto", 0.85, cLight), line(445, [[0.668, 0.280], [0.678, 0.315]], "auto", 0.85, cLight)); // highlight
-  add(...strokes(c, hatch(446, sh, eB, 0.62, 0.92, 0.05, 0.075), "auto", H), ...strokes(c, hatch(447, sh, eF, 0.62, 0.92, -0.05, -0.075), "auto", H));
+    // ── FIERCE ANGRY BROW & FOREHEAD FURROW ──
+    deco(cDark, q.path([[0.442, 0.12], [0.47, 0.13], [0.498, 0.142]]), "head", 2.2),
+    deco(cDark, q.path([[0.558, 0.12], [0.53, 0.13], [0.502, 0.142]]), "head", 2.2),
+    deco(cDark, q.path([[0.488, 0.112], [0.496, 0.13]]), "head", 1.0),
+    deco(cDark, q.path([[0.512, 0.112], [0.504, 0.13]]), "head", 1.0),
 
-  // ---- CHEST & 8-PACK ABS: armor-plate slab pecs, deep sternum, chiseled abs, serratus cuts
-  // pectoral slabs
-  both(450, [[0.5, 0.250], [0.458, 0.242], [0.420, 0.252], [0.392, 0.278], [0.388, 0.315], [0.410, 0.346], [0.455, 0.358], [0.5, 0.354]], "torso", 1.55, 2, cDark);
-  both(451, [[0.392, 0.335], [0.402, 0.385], [0.418, 0.440], [0.436, 0.495], [0.446, 0.540]], "torso", 1.45, 2, cDark);
-  // deep sternum cleavage & pec lower shelf shadow
-  add(line(452, [[0.5, 0.254], [0.5, 0.354]], "torso", 1.2, cDark));
-  both(453, [[0.412, 0.344], [0.455, 0.356], [0.498, 0.353]], "torso", 1.2, 1, cDark);
-  add(...strokes(c, hatch(454, [0.415, 0.338], [0.498, 0.351], 0.05, 0.95, 0.0, 0.016, 0.011), "torso", H), ...strokes(c, hatch(954, [0.585, 0.338], [0.502, 0.351], 0.05, 0.95, 0.0, -0.016, 0.011), "torso", H));
-  // pectoral highlight ridges
-  both(455, [[0.445, 0.260], [0.420, 0.285], [0.425, 0.320]], "torso", 0.85, 1, cLight);
-  // 8-pack abdominal wall: linea alba and rectus abdominis cuts
-  add(line(456, [[0.5, 0.362], [0.499, 0.440], [0.5, 0.528]], "torso", 1.2, cDark));
-  both(457, [[0.466, 0.362], [0.460, 0.400], [0.462, 0.440], [0.466, 0.480], [0.474, 0.518]], "torso", 1.1, 1, cDark);
-  for (const [k, y] of [0.395, 0.432, 0.468].entries()) {
-    const hw = 0.036 - k * 0.002;
-    add(line(460 + k, [[0.5 - hw, y - 0.004], [0.484, y + 0.003], [0.5, y - 0.001]], "torso", 1.0, cDark));
-    add(line(470 + k, [[0.5, y - 0.001], [0.516, y + 0.003], [0.5 + hw, y - 0.004]], "torso", 1.0, cDark));
-    // ab muscle highlight curves
-    add(line(475 + k, [[0.5 - hw * 0.7, y - 0.018], [0.49, y - 0.012]], "torso", 0.75, cLight));
-    add(line(480 + k, [[0.51, y - 0.012], [0.5 + hw * 0.7, y - 0.018]], "torso", 0.75, cLight));
-  }
-  // serratus anterior "finger" muscles along the ribs
-  both(485, [[0.422, 0.400], [0.438, 0.412]], "torso", 0.9, 1, cDark);
-  both(486, [[0.426, 0.435], [0.444, 0.448]], "torso", 0.9, 1, cDark);
-  both(487, [[0.432, 0.470], [0.450, 0.482]], "torso", 0.9, 1, cDark);
-  // vascular abdominal vein snaking down the flank
-  add(line(488, [[0.455, 0.370], [0.448, 0.415], [0.452, 0.460], [0.446, 0.505]], "torso", 0.75, cLight));
+    // ── GLOWING WHITE EYES & PUPILS ──
+    deco(white, q.path([[0.458, 0.138], [0.488, 0.144], [0.466, 0.152], [0.458, 0.138]]), "head", 1.6),
+    deco(white, q.path([[0.542, 0.138], [0.512, 0.144], [0.534, 0.152], [0.542, 0.138]]), "head", 1.6),
+    deco(cDark, q.ellipse(0.475, 0.145, 0.003, 0.004), "head", 1.3),
+    deco(cDark, q.ellipse(0.525, 0.145, 0.003, 0.004), "head", 1.3),
 
-  // ---- GIANT ARMS: peaked biceps, split triceps, veiny forearms, knuckled clenched fists
-  const arm = (seed: number, e: [number, number], h: [number, number], up: 1 | -1, fist: [number, number], far = false) => {
-    const np = far ? 1 : 2;
-    // bicep peak contour & tricep bulge
-    add(...passes(cDark, seed, muscle(seed, sh, e, up, 0.46, 1.05, 0.034, 0.07, 0.6), "auto", 1.5, np));
-    add(...passes(cDark, seed + 1, muscle(seed + 1, sh, e, -up as 1 | -1, 0.55, 1.05, 0.03, 0.035, 0.45), "auto", 1.45, np));
-    // bicep highlight peak ridge
-    add(line(seed + 2, [onBone(sh, e, 0.55, up * 0.06), onBone(sh, e, 0.75, up * 0.085), onBone(sh, e, 0.95, up * 0.055)], "auto", 0.9, cLight));
-    // pulsing bicep vein
-    add(line(seed + 3, [onBone(sh, e, 0.52, up * 0.045), onBone(sh, e, 0.68, up * 0.055), onBone(sh, e, 0.82, up * 0.038), onBone(sh, e, 0.98, up * 0.048)], "auto", 0.8, cLight));
-    add(...strokes(c, shade(seed + 4, sh, e, -up as 1 | -1, 0.55, 1.05, 0.03, 0.035, 0.45, 0.3, 0.85), "auto", H));
-    // forearm contours & brachioradialis muscle
-    const fs = (up === 1 ? -1 : 1) as 1 | -1;
-    add(...passes(cDark, seed + 5, muscle(seed + 5, e, h, fs, -0.08, 0.84, 0.028, 0.05, 0.3), "auto", 1.45, np));
-    add(...passes(cDark, seed + 6, muscle(seed + 6, e, h, -fs as 1 | -1, -0.04, 0.84, 0.022, 0.03, 0.3), "auto", 1.4, np));
-    // branching forearm veins
-    add(line(seed + 7, [onBone(e, h, 0.15, -fs * 0.012), onBone(e, h, 0.35, -fs * 0.020), onBone(e, h, 0.55, -fs * 0.010), onBone(e, h, 0.75, -fs * 0.018)], "auto", far ? 0.5 : 0.85, cLight));
-    add(line(seed + 8, [onBone(e, h, 0.35, -fs * 0.020), onBone(e, h, 0.48, 0), onBone(e, h, 0.65, fs * 0.008)], "auto", far ? 0.4 : 0.75, cLight));
-    add(...strokes(c, shade(seed + 9, e, h, fs, -0.08, 0.84, 0.028, 0.05, 0.3, 0.3, 0.85), "auto", H));
-    // clenched fist: knuckled block, finger segments, folded thumb and wrist tendon
-    const [fx, fy] = fist;
-    const r = 0.062;
-    add(...passes(cDark, seed + 10, [[fx - r * 0.85, fy + r * 0.8], [fx - r, fy - r * 0.05], [fx - r * 0.75, fy - r * 0.85], [fx, fy - r], [fx + r * 0.75, fy - r * 0.85], [fx + r, fy - r * 0.05], [fx + r * 0.85, fy + r * 0.75], [fx, fy + r * 0.95], [fx - r * 0.85, fy + r * 0.8]], "auto", 1.5));
-    // knuckle line & finger separations
-    add(line(seed + 11, [[fx - r * 0.82, fy - r * 0.3], [fx + r * 0.82, fy - r * 0.3]], "auto", 0.9, cDark));
-    for (const k of [-0.42, 0, 0.42]) add(line(seed + 12 + k * 10, [[fx + r * k, fy - r * 0.92], [fx + r * k, fy - r * 0.32]], "auto", 0.75, cDark));
-    // folded thumb across fingers
-    add(line(seed + 15, [[fx - r * 0.75, fy + r * 0.1], [fx - r * 0.1, fy + r * 0.25], [fx - r * 0.05, fy + r * 0.6]], "auto", 0.9, cDark));
-    add(line(seed + 16, [[fx - r * 0.65, fy + r * 0.15], [fx - r * 0.15, fy + r * 0.28]], "auto", 0.75, cLight)); // thumb highlight
-    add(...strokes(c, hatch(seed + 17, [fx - r * 0.7, fy + r * 0.35], [fx + r * 0.7, fy + r * 0.35], 0, 1, 0, -r * 0.45, 0.007), "auto", H));
-  };
-  arm(500, eB, hB, 1, [0.322, 0.21], true);
-  arm(540, eF, hF, -1, [0.698, 0.21]);
+    // ── SNARLING NOSE ──
+    deco(cDark, q.path([[0.492, 0.152], [0.490, 0.165], [0.510, 0.165], [0.508, 0.152]]), "head", 1.0),
 
-  // ---- SHREDDED TORN SHORTS: royal purple textured canvas, ragged frayed hem, tears & waistband
-  add(...passes(shortsDark, 600, [[0.444, 0.528], [0.5, 0.534], [0.556, 0.528]], "torso", 1.6));
-  add(...passes(shorts, 601, [[0.444, 0.538], [0.5, 0.544], [0.556, 0.538]], "torso", 1.4));
-  const legShorts = (seed: number, k: [number, number], s: 1 | -1) => {
-    // outer and inner leg seams of shorts
-    add(...passes(shortsDark, seed, [onBone(hip, k, -0.04, s * 0.068), onBone(hip, k, 0.25, s * 0.080), onBone(hip, k, 0.5, s * 0.078)], "auto", 1.45));
-    // jagged, frayed, torn hem with hanging threads
-    add(line(seed + 1, [onBone(hip, k, 0.5, s * 0.078), onBone(hip, k, 0.62, s * 0.054), onBone(hip, k, 0.52, s * 0.032), onBone(hip, k, 0.65, s * 0.008), onBone(hip, k, 0.53, -s * 0.016), onBone(hip, k, 0.64, -s * 0.038), onBone(hip, k, 0.51, -s * 0.062)], "auto", 1.4, shortsDark));
-    // hanging fray threads
-    add(line(seed + 2, [onBone(hip, k, 0.62, s * 0.054), onBone(hip, k, 0.71, s * 0.056)], "auto", 0.7, shorts));
-    add(line(seed + 3, [onBone(hip, k, 0.65, s * 0.008), onBone(hip, k, 0.73, s * 0.006)], "auto", 0.7, shorts));
-    add(line(seed + 4, [onBone(hip, k, 0.64, -s * 0.038), onBone(hip, k, 0.72, -s * 0.035)], "auto", 0.7, shorts));
-    // rich fabric hatch shading
-    add(...strokes(shorts, hatch(seed + 5, hip, k, 0.1, 0.44, s * 0.012, s * 0.068, 0.012, 0.8), "auto", H));
-    // fabric tear slash with exposed green muscle underneath
-    add(line(seed + 6, [onBone(hip, k, 0.28, s * 0.05), onBone(hip, k, 0.36, s * 0.065)], "auto", 1.2, shortsDark));
-    add(line(seed + 7, [onBone(hip, k, 0.30, s * 0.055), onBone(hip, k, 0.34, s * 0.060)], "auto", 0.9, cLight));
-  };
-  legShorts(610, kB, -1);
-  legShorts(620, kF, 1);
-  add(line(630, [[0.468, 0.60], [0.5, 0.570], [0.532, 0.60]], "torso", 1.2, shortsDark));
+    // ── GRITTED TEETH & FURIOUS MOUTH ──
+    deco(white, q.path([[0.462, 0.180], [0.538, 0.180], [0.534, 0.198], [0.466, 0.198], [0.462, 0.180]]), "head", 1.8),
+    deco(cDark, q.path([[0.458, 0.178], [0.50, 0.174], [0.542, 0.178]]), "head", 1.5),
+    deco(cDark, q.path([[0.462, 0.200], [0.50, 0.204], [0.538, 0.200]]), "head", 1.5),
+    // tooth lines
+    deco(cDark, q.path([[0.462, 0.189], [0.538, 0.189]]), "head", 0.9),
+    ...[0.476, 0.492, 0.508, 0.524].map((x) => deco(cDark, q.path([[x, 0.180], [x, 0.198]]), "head", 0.8)),
 
-  // ---- MASSIVE LEGS, QUADS & PLANTED BARE FEET: teardrop quads, calf diamonds, vascular calves, wide toes
-  const leg = (seed: number, k: [number, number], f: [number, number], out: 1 | -1, toe: number) => {
-    // outer quad sweep & inner teardrop (vastus medialis)
-    add(...passes(cDark, seed, muscle(seed, hip, k, out, 0.48, 1.04, 0.038, 0.038, 0.25), "auto", 1.5));
-    add(...passes(cDark, seed + 1, muscle(seed + 1, hip, k, -out as 1 | -1, 0.50, 1.04, 0.032, 0.030, 0.3), "auto", 1.45));
-    // quad teardrop highlight ridge
-    add(line(seed + 2, [onBone(hip, k, 0.82, -out * 0.015), onBone(hip, k, 0.94, -out * 0.035), onBone(hip, k, 1.0, 0)], "auto", 1.0, cLight));
-    // massive bulging diamond calf (gastrocnemius)
-    add(...passes(cDark, seed + 3, muscle(seed + 3, k, f, out, 0.04, 0.90, 0.024, 0.038, 0.3), "auto", 1.5));
-    add(...passes(cDark, seed + 4, muscle(seed + 4, k, f, -out as 1 | -1, 0.04, 0.90, 0.022, 0.024, 0.35), "auto", 1.45));
-    // vascular calf vein
-    add(line(seed + 5, [onBone(k, f, 0.15, out * 0.015), onBone(k, f, 0.45, out * 0.028), onBone(k, f, 0.75, out * 0.012)], "auto", 0.85, cLight));
-    // knee cap (patella)
-    add(line(seed + 6, [onBone(hip, k, 0.94, -0.018), onBone(hip, k, 1.01, 0), onBone(hip, k, 0.94, 0.018)], "auto", 1.1, cDark));
-    add(...strokes(c, shade(seed + 7, hip, k, out, 0.5, 1.04, 0.038, 0.038, 0.25, 0.45, 0.85, 0.42, 0.92, 0.014, 0.5), "auto", H));
-    add(...strokes(c, shade(seed + 8, k, f, out, 0.04, 0.90, 0.024, 0.038, 0.3, 0.4, 0.85, 0.08, 0.8, 0.014, 0.5), "auto", H));
-    // heavy planted bare foot with distinct toes gripped on ground
-    const [x, y] = f;
-    add(...passes(cDark, seed + 9, [[x - toe * 0.022, y - 0.036], [x - toe * 0.028, y + 0.004], [x + toe * 0.068, y + 0.007], [x + toe * 0.080, y - 0.012], [x + toe * 0.038, y - 0.026], [x + toe * 0.018, y - 0.036]], "auto", 1.5));
-    // individual toe cuts
-    add(line(seed + 10, [[x + toe * 0.055, y - 0.014], [x + toe * 0.055, y + 0.006]], "auto", 0.85, cDark));
-    add(line(seed + 11, [[x + toe * 0.040, y - 0.016], [x + toe * 0.040, y + 0.005]], "auto", 0.8, cDark));
-    add(line(seed + 12, [[x + toe * 0.025, y - 0.018], [x + toe * 0.025, y + 0.004]], "auto", 0.75, cDark));
-  };
-  leg(700, kB, fB, -1, -1);
-  leg(720, kF, fF, 1, 1);
+    // ── MASSIVE SLOPING TRAPS & NECK ──
+    deco(cDark, q.path([[0.44, 0.175], [0.39, 0.21], [0.34, 0.26], [0.33, 0.29]]), "auto", 1.8),
+    deco(cDark, q.path([[0.56, 0.175], [0.61, 0.21], [0.66, 0.26], [0.67, 0.29]]), "auto", 1.8),
+    deco(c, q2.path([[0.445, 0.18], [0.40, 0.215], [0.355, 0.26]]), "auto", 1.1),
+    deco(c, q2.path([[0.555, 0.18], [0.60, 0.215], [0.645, 0.26]]), "auto", 1.1),
+    deco(cDark, q.path([[0.465, 0.215], [0.48, 0.25]]), "torso", 1.0),
+    deco(cDark, q.path([[0.535, 0.215], [0.52, 0.25]]), "torso", 1.0),
+
+    // ── BROAD CHEST PECS & STERNUM ──
+    deco(cDark, q.path([[0.50, 0.25], [0.43, 0.265], [0.40, 0.315], [0.44, 0.355], [0.50, 0.355]]), "torso", 1.8),
+    deco(cDark, q.path([[0.50, 0.25], [0.57, 0.265], [0.60, 0.315], [0.56, 0.355], [0.50, 0.355]]), "torso", 1.8),
+    deco(cDark, q.path([[0.50, 0.25], [0.50, 0.52]]), "torso", 1.2),
+    deco(cLight, q.path([[0.445, 0.28], [0.425, 0.31], [0.46, 0.34]]), "torso", 1.0),
+    deco(cLight, q.path([[0.555, 0.28], [0.575, 0.31], [0.54, 0.34]]), "torso", 1.0),
+
+    // ── 6-PACK ABS & SERRATUS RIBS ──
+    deco(cDark, q.path([[0.455, 0.395], [0.50, 0.402], [0.545, 0.395]]), "torso", 1.2),
+    deco(cDark, q.path([[0.450, 0.440], [0.50, 0.446], [0.550, 0.440]]), "torso", 1.2),
+    deco(cDark, q.path([[0.455, 0.485], [0.50, 0.490], [0.545, 0.485]]), "torso", 1.2),
+    deco(cDark, q.path([[0.40, 0.32], [0.41, 0.41], [0.435, 0.52]]), "torso", 1.6),
+    deco(cDark, q.path([[0.60, 0.32], [0.59, 0.41], [0.565, 0.52]]), "torso", 1.6),
+    // serratus cuts
+    deco(cDark, q.path([[0.415, 0.36], [0.435, 0.37]]), "torso", 0.9),
+    deco(cDark, q.path([[0.42, 0.40], [0.44, 0.41]]), "torso", 0.9),
+    deco(cDark, q.path([[0.585, 0.36], [0.565, 0.37]]), "torso", 0.9),
+    deco(cDark, q.path([[0.58, 0.40], [0.56, 0.41]]), "torso", 0.9),
+
+    // ── BOULDER DELTOIDS & BICEPS (ARMS) ──
+    // back arm (left side)
+    deco(cDark, q.arc(0.35, 0.29, 0.045, 0.035, 0.8, 3.4, 8), "auto", 1.8),
+    deco(cDark, q.path([[0.33, 0.30], [0.30, 0.35], [0.34, 0.39]]), "auto", 1.7),
+    deco(cDark, q.path([[0.39, 0.30], [0.42, 0.35], [0.38, 0.39]]), "auto", 1.6),
+    deco(cLight, q.path([[0.33, 0.33], [0.32, 0.37]]), "auto", 0.9),
+    // back forearm & fist
+    deco(cDark, q.path([[0.34, 0.39], [0.30, 0.43], [0.31, 0.47]]), "auto", 1.6),
+    deco(cDark, q.path([[0.38, 0.39], [0.36, 0.44], [0.35, 0.47]]), "auto", 1.6),
+    // big back fist
+    deco(cDark, q.ellipse(0.33, 0.49, 0.026, 0.028), "auto", 1.8),
+    deco(cDark, q.path([[0.31, 0.49], [0.35, 0.49]]), "auto", 1.3),
+    deco(cDark, q.path([[0.34, 0.47], [0.35, 0.50]]), "auto", 1.1),
+
+    // front arm (right side)
+    deco(cDark, q.arc(0.65, 0.29, 0.045, 0.035, -0.3, 2.3, 8), "auto", 1.8),
+    deco(cDark, q.path([[0.67, 0.30], [0.70, 0.35], [0.66, 0.39]]), "auto", 1.7),
+    deco(cDark, q.path([[0.61, 0.30], [0.58, 0.35], [0.62, 0.39]]), "auto", 1.6),
+    deco(cLight, q.path([[0.67, 0.33], [0.68, 0.37]]), "auto", 0.9),
+    // front forearm & fist
+    deco(cDark, q.path([[0.66, 0.39], [0.69, 0.43], [0.68, 0.46]]), "auto", 1.6),
+    deco(cDark, q.path([[0.62, 0.39], [0.64, 0.44], [0.65, 0.46]]), "auto", 1.6),
+    // big front fist
+    deco(cDark, q.ellipse(0.67, 0.48, 0.026, 0.028), "auto", 1.8),
+    deco(cDark, q.path([[0.65, 0.48], [0.69, 0.48]]), "auto", 1.3),
+    deco(cDark, q.path([[0.65, 0.46], [0.64, 0.49]]), "auto", 1.1),
+
+    // ── TORN PURPLE SHORTS ──
+    // waistband
+    deco(shortsDark, q.path([[0.435, 0.52], [0.50, 0.535], [0.565, 0.52]]), "torso", 2.4),
+    deco(shorts, q2.path([[0.438, 0.526], [0.50, 0.540], [0.562, 0.526]]), "torso", 1.4),
+    deco(shortsDark, q.path([[0.50, 0.535], [0.50, 0.59]]), "auto", 1.4),
+    // back leg shorts tube & ripped jagged hem
+    deco(shortsDark, q.path([[0.435, 0.52], [0.39, 0.60], [0.38, 0.67]]), "auto", 1.8),
+    deco(shortsDark, q.path([[0.49, 0.58], [0.47, 0.64], [0.46, 0.68]]), "auto", 1.6),
+    deco(shortsDark, q.path([[0.38, 0.67], [0.40, 0.64], [0.42, 0.68], [0.44, 0.63], [0.46, 0.68]]), "auto", 1.8),
+    deco(shorts, q.path([[0.39, 0.56], [0.42, 0.64]]), "auto", 0.9),
+    // front leg shorts tube & ripped jagged hem
+    deco(shortsDark, q.path([[0.565, 0.52], [0.61, 0.60], [0.62, 0.67]]), "auto", 1.8),
+    deco(shortsDark, q.path([[0.51, 0.58], [0.53, 0.64], [0.54, 0.68]]), "auto", 1.6),
+    deco(shortsDark, q.path([[0.54, 0.68], [0.56, 0.63], [0.58, 0.68], [0.60, 0.64], [0.62, 0.67]]), "auto", 1.8),
+    deco(shorts, q.path([[0.61, 0.56], [0.58, 0.64]]), "auto", 0.9),
+
+    // ── POWERFUL LEGS & BARE PLANTED FEET ──
+    // back leg muscles
+    deco(cDark, q.path([[0.39, 0.74], [0.35, 0.82], [0.36, 0.91]]), "auto", 1.8),
+    deco(cDark, q.path([[0.44, 0.74], [0.43, 0.82], [0.40, 0.91]]), "auto", 1.6),
+    deco(cLight, q.path([[0.37, 0.78], [0.37, 0.86]]), "auto", 0.9),
+    // back bare foot
+    deco(cDark, q.path([[0.32, 0.93], [0.41, 0.93]]), "auto", 1.8),
+    deco(cDark, q.path([[0.35, 0.90], [0.32, 0.93]]), "auto", 1.4),
+    deco(cDark, q.path([[0.39, 0.91], [0.41, 0.93]]), "auto", 1.4),
+    deco(cDark, q.path([[0.37, 0.91], [0.37, 0.93]]), "auto", 0.8), // toe divider
+
+    // front leg muscles
+    deco(cDark, q.path([[0.61, 0.74], [0.65, 0.82], [0.64, 0.91]]), "auto", 1.8),
+    deco(cDark, q.path([[0.57, 0.74], [0.58, 0.82], [0.60, 0.91]]), "auto", 1.6),
+    deco(cLight, q.path([[0.63, 0.78], [0.63, 0.86]]), "auto", 0.9),
+    // front bare foot
+    deco(cDark, q.path([[0.59, 0.93], [0.68, 0.93]]), "auto", 1.8),
+    deco(cDark, q.path([[0.61, 0.90], [0.59, 0.93]]), "auto", 1.4),
+    deco(cDark, q.path([[0.66, 0.91], [0.68, 0.93]]), "auto", 1.4),
+    deco(cDark, q.path([[0.64, 0.91], [0.64, 0.93]]), "auto", 0.8), // toe divider
+  ];
 
   return [...read, ...D];
 }
@@ -709,13 +629,16 @@ function swordsman(): InkStroke[] {
     deco(r, q.path([[0.42, 0.30], [0.34, 0.39], [0.30, 0.54], [0.32, 0.68]]), "torso", 1.2),
     deco(r, q.path([[0.32, 0.68], [0.35, 0.63], [0.38, 0.67], [0.41, 0.62], [0.44, 0.65]]), "torso", 0.9),
     deco(r, q.path([[0.34, 0.39], [0.33, 0.58]]), "torso", 0.7),
-    // broadsword blade fuller & contour
-    deco(c, q.path([[0.67, 0.39], [0.83, 0.23]]), "auto", 0.8),
-    deco(s, q.path([[0.66, 0.41], [0.855, 0.215], [0.86, 0.2], [0.845, 0.185], [0.65, 0.385]]), "auto", 0.85),
-    // golden crossguard quillons & pommel
-    deco(g, q.ellipse(0.65, 0.36, 0.008, 0.008), "auto", 1.2),
-    deco(g, q.ellipse(0.70, 0.42, 0.008, 0.008), "auto", 1.2),
-    deco(g, q.ellipse(0.635, 0.425, 0.01, 0.01), "auto", 1.4),
+    // broadsword: gleaming steel fill, crisp dark outline, fuller groove & golden guard/pommel
+    deco("#d8e2ec", q.path([[0.66, 0.405], [0.855, 0.21], [0.85, 0.19], [0.655, 0.385]]), "weapon", 1.6),
+    deco(s, q.path([[0.66, 0.41], [0.855, 0.215], [0.86, 0.2], [0.845, 0.185], [0.65, 0.385]]), "weapon", 1.2),
+    deco(c, q.path([[0.67, 0.395], [0.83, 0.23]]), "weapon", 0.9),
+    deco(s, q.path([[0.845, 0.185], [0.865, 0.195], [0.855, 0.215]]), "weapon", 1.2),
+    deco(g, q.path([[0.635, 0.355], [0.705, 0.425]]), "weapon", 1.8),
+    deco(g, q.ellipse(0.64, 0.36, 0.009, 0.009), "weapon", 1.3),
+    deco(g, q.ellipse(0.70, 0.42, 0.009, 0.009), "weapon", 1.3),
+    deco(s, q.path([[0.65, 0.39], [0.63, 0.43]]), "weapon", 1.4),
+    deco(g, q.ellipse(0.63, 0.43, 0.011, 0.011), "weapon", 1.5),
     // armored greaves & pointed sabaton boots
     deco(c, q.ellipse(0.42, 0.73, 0.012, 0.012), "auto", 1.0),
     deco(c, q.ellipse(0.60, 0.73, 0.012, 0.012), "auto", 1.0),
@@ -729,8 +652,7 @@ function dog(): InkStroke[] {
   const c = "#7a4a2a";
   const d = "#4a2c16";
   const r = "#c23b32";
-  const g = "#c4962c";
-  const k = "#d45d8c";
+  const w = "#f6f8f0";
   const p = pencil(91);
   const q = pencil(92);
   const read: InkStroke[] = [
@@ -744,36 +666,20 @@ function dog(): InkStroke[] {
     { color: c, points: p.path([[0.72, 0.3], [0.7, 0.24], [0.76, 0.29]]) },
   ];
   const D: InkStroke[] = [
-    // snout, nose and happy panting mouth with pink tongue
-    deco(c, q.path([[0.78, 0.34], [0.835, 0.37], [0.81, 0.40], [0.76, 0.41]]), "head", 0.95),
-    deco("#2a241c", q.ellipse(0.83, 0.368, 0.009, 0.007), "head", 1.3),
-    deco("#2a241c", q.path([[0.805, 0.395], [0.76, 0.41]]), "head", 0.8),
-    deco(k, q.path([[0.79, 0.405], [0.805, 0.425], [0.785, 0.43], [0.775, 0.41]]), "head", 1.2),
-    // friendly eye & playful brow
-    deco("#2a241c", q.ellipse(0.75, 0.33, 0.008, 0.01), "head", 1.1),
-    deco("#2a241c", q.path([[0.738, 0.318], [0.758, 0.32]]), "head", 0.7),
-    // floppy hound ear with shaded fold
-    deco(c, q.path([[0.71, 0.31], [0.66, 0.34], [0.65, 0.39], [0.69, 0.38]]), "head", 1.0),
-    deco(d, q.path([[0.67, 0.345], [0.66, 0.38]]), "head", 0.65),
-    // red collar & shiny gold medal
-    deco(r, q.path([[0.69, 0.42], [0.67, 0.46]]), "head", 2.2),
-    deco(g, q.ellipse(0.685, 0.468, 0.009, 0.009), "head", 1.4),
-    // scruffy chest fur and back/belly contour
-    deco(c, q.path([[0.69, 0.45], [0.725, 0.49], [0.695, 0.52], [0.72, 0.55], [0.68, 0.56]]), "auto", 0.85),
-    deco(c, q.path([[0.32, 0.47], [0.48, 0.46], [0.64, 0.46]]), "auto", 0.9),
-    deco(c, q.path([[0.38, 0.54], [0.50, 0.53], [0.61, 0.52]]), "auto", 0.75),
-    // spot patch on back
-    deco(d, q.ellipse(0.48, 0.48, 0.038, 0.022), "auto", 0.8),
-    deco(d, scribble(95, 0.45, 0.51, 0.47, 0.49, 2), "auto", 0.45),
-    // bushy wagging tail tufts
-    deco(c, q.path([[0.25, 0.44], [0.22, 0.40]]), "auto", 0.75),
-    deco(c, q.path([[0.21, 0.38], [0.17, 0.34], [0.15, 0.31]]), "auto", 0.85),
-    deco(c, q.path([[0.17, 0.35], [0.14, 0.36]]), "auto", 0.75),
-    // paws & toes on ground
-    deco(c, q.path([[0.59, 0.93], [0.63, 0.93]]), "auto", 1.1),
-    deco(c, q.path([[0.67, 0.93], [0.71, 0.93]]), "auto", 1.1),
-    deco(c, q.path([[0.25, 0.93], [0.29, 0.93]]), "auto", 1.1),
-    deco(c, q.path([[0.34, 0.93], [0.38, 0.93]]), "auto", 1.1),
+    // simple head: a boxy snout, black nose, one eye, a floppy ear, a short mouth with two fangs
+    deco(c, q.path([[0.785, 0.335], [0.855, 0.345], [0.862, 0.395], [0.775, 0.405]]), "head", 1.8),
+    deco("#1a1512", q.ellipse(0.862, 0.352, 0.012, 0.01), "head", 2.2),
+    deco("#1a1512", q.ellipse(0.757, 0.335, 0.007, 0.008), "head", 2.2),
+    deco(d, q.path([[0.705, 0.305], [0.675, 0.395], [0.725, 0.365], [0.705, 0.305]]), "head", 1.8),
+    deco(d, q.path([[0.785, 0.385], [0.855, 0.385]]), "head", 1.4),
+    deco(w, q.path([[0.815, 0.385], [0.822, 0.415], [0.83, 0.385]]), "head", 1.6),
+    deco(w, q.path([[0.84, 0.385], [0.846, 0.41], [0.853, 0.385]]), "head", 1.6),
+    // a red collar
+    deco(r, q.path([[0.69, 0.425], [0.725, 0.435]]), "head", 3),
+    // back and belly lines, and a spot
+    deco(c, q.path([[0.32, 0.47], [0.48, 0.46], [0.64, 0.46]]), "auto", 1.4),
+    deco(c, q.path([[0.38, 0.54], [0.5, 0.535], [0.61, 0.525]]), "auto", 1.2),
+    deco(d, q.ellipse(0.48, 0.5, 0.04, 0.026), "auto", 1.4),
   ];
   return [...read, ...D];
 }
@@ -1037,271 +943,222 @@ function phantom(): InkStroke[] {
  *  - Signature "THWIP" web-shooter hand gesture with wrist shooter device and shooting web strand
  *  - High red boots with pointed chevron tops and web lacing
  */
+/**
+ * Spider-Man: authentic comic-book wall-crawler in his iconic scarlet & cobalt suit.
+ * Hand-drawn in notebook pencil style matching the quality of Phantom Delux and Swordsman:
+ *  - Classic McFarlane / Romita large expressive white eye lenses with thick tapered black borders
+ *  - Radiating spiderweb mask grid from central nose hub with concentric scalloped arcs
+ *  - Athletic superhero anatomy with defined pecs, ab cuts, and blue flank panels
+ *  - Bold black chest spider emblem with 8 articulated legs
+ *  - Underarm spiderweb pit-wings, red pointed V-belt, and red webbed gloves
+ *  - High red superhero boots with sharp pointed chevron tops and web lacing
+ */
 function spiderman(): InkStroke[] {
   const r = "#c72032";       // vibrant comic scarlet red
-  const rDark = "#8e1522";   // deep red shadow / muscle crease
+  const rDark = "#8e1522";   // deep red shadow / contour
   const b = "#1c3b7a";       // classic comic cobalt blue
-  const bDark = "#102047";   // deep navy shadow for suit flanks
-  const k = "#18141c";       // dense black ink for webs, emblem & lens borders
+  const bDark = "#102047";   // deep navy blue
+  const k = "#18141c";       // dense black ink for spiderwebs, emblem & lens frames
   const w = "#f5f8fc";       // gleaming white eye lenses
-  const gleam = "#9ec5eb";   // lens reflection highlight
-  const webLine = "#504656"; // subtle web strand grey
+  const gleam = "#a5c8ed";   // subtle lens gleam
 
   const p = pencil(130);
   const q = pencil(131);
   const q2 = pencil(132);
 
-  // ── read skeleton: clean athletic unarmed biped ──
+  // ── READ SKELETON: athletic agile biped superhero in suit colors ──
   const read: InkStroke[] = [
     { color: r, points: p.ellipse(0.5, 0.15, 0.058, 0.068) },
     { color: r, points: p.path([[0.5, 0.22], [0.5, 0.55]]) },
-    { color: r, points: p.path([[0.5, 0.29], [0.39, 0.38], [0.33, 0.48]]) },
-    { color: r, points: p.path([[0.5, 0.29], [0.61, 0.37], [0.67, 0.44]]) },
+    { color: r, points: p.path([[0.5, 0.29], [0.39, 0.38], [0.34, 0.47]]) },
+    { color: r, points: p.path([[0.5, 0.29], [0.61, 0.37], [0.66, 0.45]]) },
     { color: b, points: p.path([[0.5, 0.55], [0.42, 0.73], [0.38, 0.93]]) },
     { color: b, points: p.path([[0.5, 0.55], [0.60, 0.73], [0.63, 0.93]]) },
   ];
 
-  const D: InkStroke[] = [];
-  const add = (...s: InkStroke[]) => D.push(...s);
-  const line = (seed: number, pts: [number, number][], where: "head" | "torso" | "auto", width = 1, col = k) =>
-    deco(col, pencil(seed).path(pts, 0.002), where, width);
+  const D: InkStroke[] = [
+    // ══════════════════════════════════════════════════════════════
+    // 1. HEAD & MASK: Aerodynamic skull, iconic eyes, radial web grid
+    // ══════════════════════════════════════════════════════════════
+    // Sleek comic mask contour
+    deco(rDark, q.path([[0.5, 0.082], [0.452, 0.096], [0.442, 0.142], [0.455, 0.188], [0.482, 0.218], [0.5, 0.222], [0.518, 0.218], [0.545, 0.188], [0.558, 0.142], [0.548, 0.096], [0.5, 0.082]]), "head", 1.4),
 
-  // ══════════════════════════════════════════════════════════════
-  // 1. HEAD & MASK: Aerodynamic skull, jawline, and iconic eyes
-  // ══════════════════════════════════════════════════════════════
-  // Red mask base fill & reinforced skull contour
-  add(...passes(r, 601, [[0.5, 0.082], [0.452, 0.096], [0.442, 0.142], [0.455, 0.188], [0.482, 0.218], [0.5, 0.222], [0.518, 0.218], [0.545, 0.188], [0.558, 0.142], [0.548, 0.096], [0.5, 0.082]], "head", 1.4, 2));
-  // Jawline and chin contour
-  add(line(602, [[0.448, 0.165], [0.468, 0.205], [0.5, 0.222], [0.532, 0.205], [0.552, 0.165]], "head", 1.3, rDark));
+    // ── LARGE EXPRESSIVE ROMITA/McFARLANE EYE LENSES ──
+    // Left eye lens white interior fill
+    deco(w, q.path([[0.440, 0.142], [0.462, 0.124], [0.490, 0.136], [0.488, 0.162], [0.460, 0.170], [0.440, 0.142]]), "head", 1.8),
+    deco(w, q2.path([[0.444, 0.142], [0.464, 0.128], [0.486, 0.138], [0.484, 0.158], [0.462, 0.166], [0.444, 0.142]]), "head", 1.5),
+    // Left eye lens thick black frame (McFarlane taper)
+    deco(k, q.path([[0.436, 0.142], [0.462, 0.120], [0.494, 0.134], [0.492, 0.164], [0.458, 0.174], [0.436, 0.142]]), "head", 2.2),
+    // Left eye diagonal sheen glint
+    deco(gleam, q.path([[0.448, 0.138], [0.466, 0.156]]), "head", 0.9),
 
-  // ── THE LEGENDARY EXPRESSIVE EYE LENSES ──
-  // Left eye lens (white interior)
-  add(deco(w, q.path([[0.458, 0.126], [0.435, 0.148], [0.458, 0.170], [0.490, 0.162], [0.492, 0.138], [0.458, 0.126]]), "head", 1.6));
-  add(deco(w, q2.path([[0.455, 0.128], [0.438, 0.148], [0.456, 0.168], [0.488, 0.160], [0.490, 0.140], [0.455, 0.128]]), "head", 1.4));
-  // Left eye diagonal sheen reflection
-  add(line(603, [[0.450, 0.142], [0.470, 0.162]], "head", 0.9, gleam));
-  // Left eye outer thick black border (McFarlane sweep)
-  add(...passes(k, 604, [[0.492, 0.132], [0.456, 0.122], [0.430, 0.146], [0.455, 0.174], [0.492, 0.164]], "head", 2.2, 2));
-  add(line(605, [[0.430, 0.146], [0.420, 0.142]], "head", 1.5, k)); // sharp outer peak
+    // Right eye lens white interior fill
+    deco(w, q.path([[0.560, 0.142], [0.538, 0.124], [0.510, 0.136], [0.512, 0.162], [0.540, 0.170], [0.560, 0.142]]), "head", 1.8),
+    deco(w, q2.path([[0.556, 0.142], [0.536, 0.128], [0.514, 0.138], [0.516, 0.158], [0.538, 0.166], [0.556, 0.142]]), "head", 1.5),
+    // Right eye lens thick black frame (McFarlane taper)
+    deco(k, q.path([[0.564, 0.142], [0.538, 0.120], [0.506, 0.134], [0.508, 0.164], [0.542, 0.174], [0.564, 0.142]]), "head", 2.2),
+    // Right eye diagonal sheen glint
+    deco(gleam, q.path([[0.552, 0.138], [0.534, 0.156]]), "head", 0.9),
 
-  // Right eye lens (white interior)
-  add(deco(w, q.path([[0.542, 0.126], [0.565, 0.148], [0.542, 0.170], [0.510, 0.162], [0.508, 0.138], [0.542, 0.126]]), "head", 1.6));
-  add(deco(w, q2.path([[0.545, 0.128], [0.562, 0.148], [0.544, 0.168], [0.512, 0.160], [0.510, 0.140], [0.545, 0.128]]), "head", 1.4));
-  // Right eye sheen reflection
-  add(line(606, [[0.530, 0.162], [0.550, 0.142]], "head", 0.9, gleam));
-  // Right eye outer thick black border
-  add(...passes(k, 607, [[0.508, 0.132], [0.544, 0.122], [0.570, 0.146], [0.545, 0.174], [0.508, 0.164]], "head", 2.2, 2));
-  add(line(608, [[0.570, 0.146], [0.580, 0.142]], "head", 1.5, k)); // sharp outer peak
+    // ── AUTHENTIC SPIDERWEB MASK GRID (Radiating from nose hub) ──
+    // Center web hub
+    deco(k, q.ellipse(0.50, 0.148, 0.003, 0.003), "head", 1.0),
+    // Radial web lines
+    deco(k, q.path([[0.50, 0.148], [0.50, 0.082]]), "head", 1.0),           // up to crown
+    deco(k, q.path([[0.50, 0.148], [0.465, 0.092]]), "head", 0.9),          // up-left diagonal
+    deco(k, q.path([[0.50, 0.148], [0.535, 0.092]]), "head", 0.9),          // up-right diagonal
+    deco(k, q.path([[0.50, 0.148], [0.442, 0.120]]), "head", 0.8),          // left temple
+    deco(k, q.path([[0.50, 0.148], [0.558, 0.120]]), "head", 0.8),          // right temple
+    deco(k, q.path([[0.50, 0.148], [0.455, 0.192]]), "head", 0.8),          // left jaw
+    deco(k, q.path([[0.50, 0.148], [0.545, 0.192]]), "head", 0.8),          // right jaw
+    deco(k, q.path([[0.50, 0.148], [0.50, 0.222]]), "head", 1.0),           // down to chin
+    // Scalloped concentric web arcs on forehead
+    deco(k, q.path([[0.470, 0.108], [0.50, 0.116], [0.530, 0.108]]), "head", 0.8),
+    deco(k, q.path([[0.458, 0.092], [0.50, 0.100], [0.542, 0.092]]), "head", 0.8),
+    // Scalloped concentric web arcs below eyes and on chin
+    deco(k, q.path([[0.468, 0.178], [0.50, 0.170], [0.532, 0.178]]), "head", 0.8),
+    deco(k, q.path([[0.478, 0.198], [0.50, 0.192], [0.522, 0.198]]), "head", 0.8),
 
-  // ── INTRICATE WEB MASK GRID ──
-  // Center web hub point between eyebrows
-  add(line(610, [[0.5, 0.082], [0.5, 0.222]], "head", 0.9, k)); // vertical center line
-  // Radial spokes radiating from center
-  add(line(611, [[0.5, 0.138], [0.458, 0.092]], "head", 0.7, k));
-  add(line(612, [[0.5, 0.138], [0.542, 0.092]], "head", 0.7, k));
-  add(line(613, [[0.5, 0.138], [0.435, 0.124]], "head", 0.7, k));
-  add(line(614, [[0.5, 0.138], [0.565, 0.124]], "head", 0.7, k));
-  add(line(615, [[0.5, 0.145], [0.440, 0.190]], "head", 0.7, k));
-  add(line(616, [[0.5, 0.145], [0.560, 0.190]], "head", 0.7, k));
-  add(line(617, [[0.5, 0.170], [0.470, 0.216]], "head", 0.7, k));
-  add(line(618, [[0.5, 0.170], [0.530, 0.216]], "head", 0.7, k));
+    // ══════════════════════════════════════════════════════════════
+    // 2. TORSO: Red center vest, cobalt blue flanks, black spider
+    // ══════════════════════════════════════════════════════════════
+    // Blue flanks (latissimus / ribs)
+    deco(b, q.path([[0.44, 0.27], [0.42, 0.36], [0.44, 0.52]]), "torso", 1.6),
+    deco(bDark, q.path([[0.455, 0.26], [0.445, 0.35], [0.46, 0.44], [0.45, 0.52]]), "torso", 1.3),
+    deco(b, q.path([[0.56, 0.27], [0.58, 0.36], [0.56, 0.52]]), "torso", 1.6),
+    deco(bDark, q.path([[0.545, 0.26], [0.555, 0.35], [0.54, 0.44], [0.55, 0.52]]), "torso", 1.3),
+    // Neck collar ring
+    deco(rDark, q.arc(0.50, 0.222, 0.026, 0.012, 0.2, 2.9, 8), "torso", 1.2),
+    // Chiseled superhero pecs in scarlet
+    deco(rDark, q.path([[0.50, 0.25], [0.46, 0.26], [0.445, 0.30], [0.495, 0.33], [0.50, 0.33]]), "torso", 1.3),
+    deco(rDark, q.path([[0.50, 0.25], [0.54, 0.26], [0.555, 0.30], [0.505, 0.33], [0.50, 0.33]]), "torso", 1.3),
+    // Ab cuts
+    deco(rDark, q.path([[0.47, 0.38], [0.50, 0.385], [0.53, 0.38]]), "torso", 0.9),
+    deco(rDark, q.path([[0.465, 0.43], [0.50, 0.435], [0.535, 0.43]]), "torso", 0.9),
+    deco(rDark, q.path([[0.47, 0.48], [0.50, 0.485], [0.53, 0.48]]), "torso", 0.9),
 
-  // Concentric scalloped web arcs connecting the mask spokes
-  // Forehead web arcs
-  add(deco(k, q.arc(0.5, 0.138, 0.024, 0.016, 0.35, 2.8, 8), "head", 0.65));
-  add(deco(k, q.arc(0.5, 0.138, 0.044, 0.032, 0.35, 2.8, 10), "head", 0.65));
-  add(deco(k, q.arc(0.5, 0.138, 0.062, 0.048, 0.40, 2.74, 12), "head", 0.65));
-  // Lower face & chin web arcs
-  add(deco(k, q.arc(0.5, 0.165, 0.026, 0.018, -2.8, -0.34, 8), "head", 0.65));
-  add(deco(k, q.arc(0.5, 0.165, 0.045, 0.034, -2.7, -0.44, 10), "head", 0.65));
+    // ── THE BOLD BLACK CHEST SPIDER EMBLEM ──
+    // Spider thorax & abdomen body
+    deco(k, q.ellipse(0.50, 0.315, 0.007, 0.010), "torso", 1.8),
+    deco(k, q.ellipse(0.50, 0.335, 0.009, 0.014), "torso", 2.2),
+    // Upper-left legs reaching upward
+    deco(k, q.path([[0.495, 0.312], [0.47, 0.292], [0.46, 0.272]]), "torso", 1.3),
+    deco(k, q.path([[0.505, 0.312], [0.53, 0.292], [0.54, 0.272]]), "torso", 1.3),
+    // Mid-upper legs reaching outward
+    deco(k, q.path([[0.493, 0.322], [0.465, 0.318], [0.45, 0.310]]), "torso", 1.3),
+    deco(k, q.path([[0.507, 0.322], [0.535, 0.318], [0.55, 0.310]]), "torso", 1.3),
+    // Mid-lower legs reaching downward-out
+    deco(k, q.path([[0.493, 0.335], [0.465, 0.345], [0.455, 0.365]]), "torso", 1.3),
+    deco(k, q.path([[0.507, 0.335], [0.535, 0.345], [0.545, 0.365]]), "torso", 1.3),
+    // Lower legs pointing straight down toward abs
+    deco(k, q.path([[0.496, 0.342], [0.48, 0.365], [0.475, 0.392]]), "torso", 1.3),
+    deco(k, q.path([[0.504, 0.342], [0.52, 0.365], [0.525, 0.392]]), "torso", 1.3),
 
-  // ══════════════════════════════════════════════════════════════
-  // 2. TORSO: Suit Color Blocking, Muscle Anatomy & Chest Spider
-  // ══════════════════════════════════════════════════════════════
-  // Deep blue side flank panels (lats & obliques)
-  add(...passes(bDark, 620, [[0.445, 0.27], [0.428, 0.34], [0.425, 0.42], [0.440, 0.50], [0.455, 0.53]], "torso", 1.8, 2));
-  add(...passes(bDark, 621, [[0.555, 0.27], [0.572, 0.34], [0.575, 0.42], [0.560, 0.50], [0.545, 0.53]], "torso", 1.8, 2));
-  // Blue flank comic-book shadow hatching
-  add(...strokes(bDark, hatch(622, [0.44, 0.28], [0.43, 0.48], 0.05, 0.95, -0.005, 0.016, 0.012), "torso", 0.7));
-  add(...strokes(bDark, hatch(623, [0.56, 0.28], [0.57, 0.48], 0.05, 0.95, 0.005, -0.016, 0.012), "torso", 0.7));
+    // Webbing across red chest
+    deco(k, q.path([[0.46, 0.26], [0.50, 0.275], [0.54, 0.26]]), "torso", 0.8),
+    deco(k, q.path([[0.45, 0.35], [0.50, 0.365], [0.55, 0.35]]), "torso", 0.8),
+    deco(k, q.path([[0.455, 0.45], [0.50, 0.465], [0.545, 0.45]]), "torso", 0.8),
 
-  // Red central vest panel (tapers into a V at the belt)
-  add(...passes(r, 624, [[0.445, 0.26], [0.450, 0.38], [0.468, 0.48], [0.485, 0.53]], "torso", 1.6, 2));
-  add(...passes(r, 625, [[0.555, 0.26], [0.550, 0.38], [0.532, 0.48], [0.515, 0.53]], "torso", 1.6, 2));
-  // Neck & collarbone line
-  add(line(626, [[0.470, 0.235], [0.5, 0.245], [0.530, 0.235]], "torso", 1.2, rDark));
-  add(line(627, [[0.450, 0.250], [0.5, 0.262], [0.550, 0.250]], "torso", 1.0, rDark));
+    // ── RED POINTED V-BELT ──
+    deco(rDark, q.path([[0.44, 0.52], [0.50, 0.545], [0.56, 0.52]]), "torso", 2.2),
+    deco(rDark, q.path([[0.445, 0.538], [0.50, 0.562], [0.555, 0.538]]), "torso", 2.0),
+    deco(k, q.path([[0.442, 0.529], [0.50, 0.554], [0.558, 0.529]]), "torso", 0.9),
+    ...[0.46, 0.48, 0.52, 0.54].map((x) => deco(k, q.path([[x, 0.53], [x, 0.545]]), "torso", 0.7)),
 
-  // ── SUPERHERO ATHLETIC MUSCULATURE UNDER SPANDEX ──
-  // Pectoral slabs (left and right pecs)
-  add(line(630, [[0.5, 0.265], [0.465, 0.268], [0.440, 0.292], [0.442, 0.332], [0.475, 0.345], [0.5, 0.340]], "torso", 1.3, rDark));
-  add(line(631, [[0.5, 0.265], [0.535, 0.268], [0.560, 0.292], [0.558, 0.332], [0.525, 0.345], [0.5, 0.340]], "torso", 1.3, rDark));
-  // Under-pec shadow cuts
-  add(line(632, [[0.450, 0.338], [0.480, 0.346]], "torso", 1.1, k));
-  add(line(633, [[0.550, 0.338], [0.520, 0.346]], "torso", 1.1, k));
+    // ══════════════════════════════════════════════════════════════
+    // 3. ARMS: Red sleeves, underarm pit-webs, red webbed gloves
+    // ══════════════════════════════════════════════════════════════
+    // Classic underarm pit-web wings!
+    deco(k, q.path([[0.44, 0.29], [0.40, 0.34], [0.42, 0.38]]), "auto", 0.8),
+    deco(k, q.path([[0.41, 0.31], [0.42, 0.36]]), "auto", 0.7),
+    deco(k, q.path([[0.56, 0.29], [0.60, 0.34], [0.58, 0.38]]), "auto", 0.8),
+    deco(k, q.path([[0.59, 0.31], [0.58, 0.36]]), "auto", 0.7),
 
-  // Six-pack abdominal muscles
-  add(line(634, [[0.5, 0.340], [0.5, 0.525]], "torso", 1.2, rDark)); // Linea alba
-  // Left abs
-  add(line(635, [[0.472, 0.348], [0.470, 0.382], [0.474, 0.424], [0.480, 0.472]], "torso", 1.0, rDark));
-  // Right abs
-  add(line(636, [[0.528, 0.348], [0.530, 0.382], [0.526, 0.424], [0.520, 0.472]], "torso", 1.0, rDark));
-  // Ab cuts (horizontal divisions)
-  add(line(637, [[0.474, 0.385], [0.5, 0.382], [0.526, 0.385]], "torso", 1.0, rDark));
-  add(line(638, [[0.476, 0.428], [0.5, 0.424], [0.524, 0.428]], "torso", 1.0, rDark));
-  add(line(639, [[0.480, 0.475], [0.5, 0.470], [0.520, 0.475]], "torso", 1.0, rDark));
+    // Back arm (left): red shoulder cap, red glove with chevron cuff
+    deco(rDark, q.path([[0.36, 0.29], [0.33, 0.34], [0.37, 0.38]]), "auto", 1.4),
+    deco(rDark, q.path([[0.42, 0.29], [0.41, 0.34], [0.39, 0.38]]), "auto", 1.2),
+    // Chevron glove cuff
+    deco(rDark, q.path([[0.35, 0.39], [0.375, 0.41], [0.40, 0.39]]), "auto", 1.6),
+    // Red forearm / glove
+    deco(rDark, q.path([[0.35, 0.41], [0.32, 0.44], [0.33, 0.47]]), "auto", 1.6),
+    deco(rDark, q.path([[0.39, 0.40], [0.36, 0.44], [0.35, 0.47]]), "auto", 1.4),
+    // Back glove web pattern
+    deco(k, q.path([[0.34, 0.43], [0.38, 0.42]]), "auto", 0.8),
+    deco(k, q.path([[0.33, 0.45], [0.36, 0.45]]), "auto", 0.8),
+    // Back clenched glove / fist
+    deco(rDark, q.ellipse(0.33, 0.475, 0.016, 0.018), "auto", 1.8),
+    deco(k, q.path([[0.32, 0.475], [0.345, 0.475]]), "auto", 1.0),
 
-  // ── UNDERARM PIT-WEB WINGS (Classic Ditko aesthetic) ──
-  // Back underarm web wing
-  add(deco(webLine, q.path([[0.45, 0.28], [0.40, 0.31], [0.36, 0.34], [0.38, 0.37], [0.42, 0.36]]), "auto", 0.85));
-  add(deco(webLine, q.path([[0.40, 0.31], [0.42, 0.34]]), "auto", 0.65));
-  add(deco(webLine, q.path([[0.36, 0.34], [0.43, 0.38]]), "auto", 0.65));
-  // Front underarm web wing
-  add(deco(webLine, q.path([[0.55, 0.28], [0.60, 0.31], [0.64, 0.34], [0.62, 0.37], [0.58, 0.36]]), "auto", 0.85));
-  add(deco(webLine, q.path([[0.60, 0.31], [0.58, 0.34]]), "auto", 0.65));
-  add(deco(webLine, q.path([[0.64, 0.34], [0.57, 0.38]]), "auto", 0.65));
+    // Front arm (right): red shoulder cap, red glove with chevron cuff
+    deco(rDark, q.path([[0.64, 0.29], [0.67, 0.34], [0.63, 0.38]]), "auto", 1.4),
+    deco(rDark, q.path([[0.58, 0.29], [0.59, 0.34], [0.61, 0.38]]), "auto", 1.2),
+    // Chevron glove cuff
+    deco(rDark, q.path([[0.60, 0.38], [0.625, 0.40], [0.65, 0.38]]), "auto", 1.6),
+    // Red forearm / glove
+    deco(rDark, q.path([[0.64, 0.39], [0.68, 0.43], [0.67, 0.46]]), "auto", 1.6),
+    deco(rDark, q.path([[0.60, 0.40], [0.63, 0.43], [0.65, 0.45]]), "auto", 1.4),
+    // Front glove web pattern
+    deco(k, q.path([[0.62, 0.42], [0.66, 0.41]]), "auto", 0.8),
+    deco(k, q.path([[0.63, 0.44], [0.66, 0.44]]), "auto", 0.8),
+    // Wrist web-shooter trigger
+    deco(k, q.ellipse(0.65, 0.445, 0.004, 0.004), "auto", 1.2),
+    // Front hand in iconic web-shooter gesture / fist
+    deco(rDark, q.ellipse(0.665, 0.46, 0.016, 0.018), "auto", 1.8),
+    deco(rDark, q.path([[0.66, 0.47], [0.68, 0.49]]), "auto", 1.1),
+    deco(rDark, q.path([[0.67, 0.47], [0.69, 0.48]]), "auto", 1.1),
 
-  // ── TORSO WEB GRID ──
-  // Vertical and radial web lines on red vest
-  add(line(640, [[0.5, 0.25], [0.450, 0.28]], "torso", 0.7, k));
-  add(line(641, [[0.5, 0.25], [0.550, 0.28]], "torso", 0.7, k));
-  add(line(642, [[0.5, 0.35], [0.455, 0.39]], "torso", 0.65, k));
-  add(line(643, [[0.5, 0.35], [0.545, 0.39]], "torso", 0.65, k));
-  add(line(644, [[0.5, 0.42], [0.470, 0.45]], "torso", 0.65, k));
-  add(line(645, [[0.5, 0.42], [0.530, 0.45]], "torso", 0.65, k));
-  add(line(646, [[0.5, 0.48], [0.482, 0.51]], "torso", 0.65, k));
-  add(line(647, [[0.5, 0.48], [0.518, 0.51]], "torso", 0.65, k));
-  // Scalloped web arcs across the chest and abs
-  add(deco(k, q.arc(0.5, 0.25, 0.030, 0.022, 0.35, 2.8, 6), "torso", 0.6));
-  add(deco(k, q.arc(0.5, 0.25, 0.052, 0.038, 0.35, 2.8, 8), "torso", 0.6));
-  add(deco(k, q.arc(0.5, 0.35, 0.026, 0.020, 0.35, 2.8, 6), "torso", 0.6));
-  add(deco(k, q.arc(0.5, 0.35, 0.048, 0.035, 0.35, 2.8, 8), "torso", 0.6));
-  add(deco(k, q.arc(0.5, 0.43, 0.024, 0.018, 0.35, 2.8, 6), "torso", 0.6));
-  add(deco(k, q.arc(0.5, 0.43, 0.042, 0.030, 0.35, 2.8, 8), "torso", 0.6));
+    // ══════════════════════════════════════════════════════════════
+    // 4. LEGS: Cobalt blue tights, high red boots with chevron tops
+    // ══════════════════════════════════════════════════════════════
+    // Cobalt blue thigh contours
+    deco(b, q.path([[0.44, 0.56], [0.40, 0.64], [0.41, 0.73]]), "auto", 1.4),
+    deco(bDark, q.path([[0.48, 0.58], [0.46, 0.65], [0.44, 0.73]]), "auto", 1.2),
+    deco(b, q.path([[0.56, 0.56], [0.60, 0.64], [0.59, 0.73]]), "auto", 1.4),
+    deco(bDark, q.path([[0.52, 0.58], [0.54, 0.65], [0.56, 0.73]]), "auto", 1.2),
 
-  // ── ICONIC CHEST SPIDER EMBLEM ──
-  // Segmented diamond cephalothorax and abdomen
-  add(...passes(k, 650, [[0.5, 0.325], [0.494, 0.334], [0.5, 0.348], [0.506, 0.334], [0.5, 0.325]], "torso", 1.8, 2));
-  add(deco(k, scribble(651, 0.495, 0.505, 0.326, 0.346, 3), "torso", 1.2));
-  // 8 articulated angular spider legs:
-  // Upper-left legs reaching up across left pec
-  add(...passes(k, 652, [[0.495, 0.330], [0.472, 0.312], [0.458, 0.320]], "torso", 1.4, 2));
-  add(...passes(k, 653, [[0.495, 0.334], [0.468, 0.325], [0.455, 0.338]], "torso", 1.4, 2));
-  // Lower-left legs angling down across left ribs
-  add(...passes(k, 654, [[0.495, 0.340], [0.468, 0.352], [0.460, 0.368]], "torso", 1.4, 2));
-  add(...passes(k, 655, [[0.495, 0.344], [0.474, 0.364], [0.468, 0.385]], "torso", 1.4, 2));
-  // Upper-right legs reaching up across right pec
-  add(...passes(k, 656, [[0.505, 0.330], [0.528, 0.312], [0.542, 0.320]], "torso", 1.4, 2));
-  add(...passes(k, 657, [[0.505, 0.334], [0.532, 0.325], [0.545, 0.338]], "torso", 1.4, 2));
-  // Lower-right legs angling down across right ribs
-  add(...passes(k, 658, [[0.505, 0.340], [0.532, 0.352], [0.540, 0.368]], "torso", 1.4, 2));
-  add(...passes(k, 659, [[0.505, 0.344], [0.526, 0.364], [0.532, 0.385]], "torso", 1.4, 2));
+    // Back leg: high red boot with sharp pointed V-top rim
+    deco(rDark, q.path([[0.39, 0.75], [0.415, 0.73], [0.44, 0.75]]), "auto", 1.6),
+    deco(rDark, q.path([[0.40, 0.75], [0.37, 0.83], [0.37, 0.91]]), "auto", 1.7),
+    deco(rDark, q.path([[0.43, 0.75], [0.41, 0.83], [0.39, 0.91]]), "auto", 1.5),
+    // Back boot web lines
+    deco(k, q.path([[0.38, 0.78], [0.42, 0.79]]), "auto", 0.8),
+    deco(k, q.path([[0.37, 0.83], [0.41, 0.84]]), "auto", 0.8),
+    deco(k, q.path([[0.37, 0.88], [0.40, 0.88]]), "auto", 0.8),
+    // Back boot foot & sole
+    deco(rDark, q.path([[0.34, 0.93], [0.41, 0.93]]), "auto", 1.8),
+    deco(rDark, q.path([[0.36, 0.90], [0.34, 0.93]]), "auto", 1.4),
+    deco(rDark, q.path([[0.39, 0.91], [0.41, 0.93]]), "auto", 1.4),
 
-  // ══════════════════════════════════════════════════════════════
-  // 3. ARMS: Muscular Contours, Gloves, & Signature "THWIP" Pose
-  // ══════════════════════════════════════════════════════════════
-  // Deltoids (shoulder muscle caps)
-  add(line(660, [[0.445, 0.27], [0.415, 0.29], [0.400, 0.33], [0.415, 0.36]], "auto", 1.3, r));
-  add(line(661, [[0.555, 0.27], [0.585, 0.29], [0.600, 0.33], [0.585, 0.36]], "auto", 1.3, r));
-  // Blue inner arm sleeve panels
-  add(line(662, [[0.420, 0.32], [0.385, 0.36]], "auto", 1.2, b));
-  add(line(663, [[0.580, 0.32], [0.615, 0.36]], "auto", 1.2, b));
-
-  // Back arm red glove (with chevron cuff & web lines)
-  add(...passes(r, 664, [[0.380, 0.37], [0.350, 0.41], [0.330, 0.47]], "auto", 1.5, 2));
-  add(line(665, [[0.395, 0.365], [0.380, 0.385], [0.370, 0.375]], "auto", 1.2, rDark)); // glove cuff
-  add(line(666, [[0.375, 0.38], [0.345, 0.44]], "auto", 0.7, k));
-  add(line(667, [[0.360, 0.40], [0.375, 0.42]], "auto", 0.7, k));
-  // Back hand: athletic spider crawl fist
-  add(deco(r, q.ellipse(0.330, 0.480, 0.016, 0.014), "auto", 1.2));
-  add(line(668, [[0.320, 0.475], [0.340, 0.475]], "auto", 0.8, k));
-
-  // Front arm red glove (with chevron cuff & web grid)
-  add(...passes(r, 670, [[0.615, 0.36], [0.645, 0.40], [0.670, 0.44]], "auto", 1.5, 2));
-  add(line(671, [[0.605, 0.365], [0.620, 0.385], [0.630, 0.375]], "auto", 1.2, rDark)); // glove cuff
-  add(line(672, [[0.625, 0.38], [0.655, 0.43]], "auto", 0.7, k));
-  add(line(673, [[0.635, 0.40], [0.620, 0.42]], "auto", 0.7, k));
-
-  // ── METALLIC WRIST WEB-SHOOTER & TRIGGER ──
-  add(deco(k, q.ellipse(0.658, 0.428, 0.007, 0.006), "auto", 1.3));
-  add(line(674, [[0.654, 0.425], [0.662, 0.431]], "auto", 1.1, w)); // silver metal gleam
-
-  // ── ICONIC "THWIP" WEB-SHOOTING HAND GESTURE ──
-  // Palm base
-  add(deco(r, q.ellipse(0.670, 0.440, 0.015, 0.013), "auto", 1.3));
-  // Curled middle & ring fingers pressing palm trigger
-  add(line(675, [[0.668, 0.438], [0.676, 0.442], [0.672, 0.446]], "auto", 1.2, rDark));
-  // Extended index finger
-  add(...passes(r, 676, [[0.680, 0.434], [0.702, 0.420], [0.715, 0.412]], "auto", 1.3, 2));
-  // Extended pinky finger
-  add(...passes(r, 677, [[0.680, 0.446], [0.704, 0.458], [0.716, 0.462]], "auto", 1.3, 2));
-  // Extended cocked thumb
-  add(line(678, [[0.662, 0.435], [0.658, 0.422]], "auto", 1.2, r));
-
-  // ── DYNAMIC SHOOTING WEB STRAND SPOOLING FROM WRIST ──
-  add(...passes(w, 680, [[0.665, 0.430], [0.710, 0.425], [0.760, 0.418], [0.810, 0.410]], "auto", 1.4, 2));
-  add(line(681, [[0.665, 0.430], [0.705, 0.434], [0.755, 0.428], [0.805, 0.420]], "auto", 0.85, webLine));
-  // Web spiral burst around wrist emitter
-  add(deco(w, q.arc(0.675, 0.428, 0.012, 0.018, -1.8, 1.8, 8), "auto", 1.1));
-
-  // ══════════════════════════════════════════════════════════════
-  // 4. WAIST & LEGS: Spider Belt, Blue Tights & High Red Boots
-  // ══════════════════════════════════════════════════════════════
-  // Red Spider Belt with pointed buckle
-  add(...passes(r, 685, [[0.450, 0.528], [0.485, 0.540], [0.500, 0.548], [0.515, 0.540], [0.550, 0.528]], "torso", 1.6, 2));
-  add(line(686, [[0.452, 0.542], [0.500, 0.560], [0.548, 0.542]], "torso", 1.2, rDark));
-  add(line(687, [[0.475, 0.534], [0.485, 0.548]], "torso", 0.7, k));
-  add(line(688, [[0.525, 0.534], [0.515, 0.548]], "torso", 0.7, k));
-
-  // Blue spandex tights (muscular quadriceps contours)
-  // Back thigh & knee
-  add(...passes(b, 690, [[0.448, 0.55], [0.415, 0.63], [0.408, 0.72]], "auto", 1.5, 2));
-  add(line(691, [[0.455, 0.56], [0.435, 0.64], [0.430, 0.72]], "auto", 1.1, bDark));
-  // Front thigh & knee
-  add(...passes(b, 692, [[0.552, 0.55], [0.585, 0.63], [0.608, 0.72]], "auto", 1.5, 2));
-  add(line(693, [[0.545, 0.56], [0.565, 0.64], [0.585, 0.72]], "auto", 1.1, bDark));
-  // Comic shadow hatching on inner thighs
-  add(...strokes(bDark, hatch(694, [0.46, 0.57], [0.42, 0.72], 0.05, 0.90, -0.005, 0.014, 0.012), "auto", 0.65));
-  add(...strokes(bDark, hatch(695, [0.54, 0.57], [0.60, 0.72], 0.05, 0.90, 0.005, -0.014, 0.012), "auto", 0.65));
-  // Defined kneecaps (patella)
-  add(deco(b, q.arc(0.418, 0.730, 0.014, 0.010, -0.2, 3.14, 6), "auto", 1.2));
-  add(deco(b, q.arc(0.602, 0.730, 0.014, 0.010, -0.2, 3.14, 6), "auto", 1.2));
-
-  // ── HIGH RED SUPERHERO BOOTS WITH WEB LACING ──
-  // Back boot (chevron top collar, boot shaft, sole & tread)
-  add(...passes(r, 700, [[0.410, 0.75], [0.395, 0.83], [0.380, 0.93]], "auto", 1.6, 2));
-  add(line(701, [[0.395, 0.755], [0.410, 0.745], [0.425, 0.755]], "auto", 1.3, rDark)); // V-cut cuff
-  add(line(702, [[0.405, 0.76], [0.385, 0.92]], "auto", 0.7, k)); // vertical web line
-  add(line(703, [[0.398, 0.80], [0.415, 0.81]], "auto", 0.65, k)); // web arc
-  add(line(704, [[0.390, 0.86], [0.408, 0.87]], "auto", 0.65, k)); // web arc
-  add(...passes(rDark, 705, [[0.345, 0.93], [0.415, 0.93]], "auto", 1.6, 2)); // sole
-  add(line(706, [[0.345, 0.934], [0.415, 0.934]], "auto", 1.2, k));           // sole bottom
-
-  // Front boot (chevron top collar, boot shaft, sole & tread)
-  add(...passes(r, 710, [[0.595, 0.75], [0.612, 0.83], [0.630, 0.93]], "auto", 1.6, 2));
-  add(line(711, [[0.585, 0.755], [0.600, 0.745], [0.615, 0.755]], "auto", 1.3, rDark)); // V-cut cuff
-  add(line(712, [[0.600, 0.76], [0.622, 0.92]], "auto", 0.7, k)); // vertical web line
-  add(line(713, [[0.595, 0.80], [0.612, 0.81]], "auto", 0.65, k)); // web arc
-  add(line(714, [[0.605, 0.86], [0.622, 0.87]], "auto", 0.65, k)); // web arc
-  add(...passes(rDark, 715, [[0.595, 0.93], [0.665, 0.93]], "auto", 1.6, 2)); // sole
-  add(line(716, [[0.595, 0.934], [0.665, 0.934]], "auto", 1.2, k));           // sole bottom
+    // Front leg: high red boot with sharp pointed V-top rim
+    deco(rDark, q.path([[0.58, 0.75], [0.605, 0.73], [0.63, 0.75]]), "auto", 1.6),
+    deco(rDark, q.path([[0.62, 0.75], [0.64, 0.83], [0.63, 0.91]]), "auto", 1.7),
+    deco(rDark, q.path([[0.58, 0.75], [0.59, 0.83], [0.61, 0.91]]), "auto", 1.5),
+    // Front boot web lines
+    deco(k, q.path([[0.59, 0.78], [0.63, 0.79]]), "auto", 0.8),
+    deco(k, q.path([[0.59, 0.83], [0.63, 0.84]]), "auto", 0.8),
+    deco(k, q.path([[0.60, 0.88], [0.63, 0.88]]), "auto", 0.8),
+    // Front boot foot & sole
+    deco(rDark, q.path([[0.59, 0.93], [0.66, 0.93]]), "auto", 1.8),
+    deco(rDark, q.path([[0.61, 0.90], [0.59, 0.93]]), "auto", 1.4),
+    deco(rDark, q.path([[0.64, 0.91], [0.66, 0.93]]), "auto", 1.4),
+  ];
 
   return [...read, ...D];
 }
 
-const HULK_STANCE: Partial<Pose> = { armF: -0.05, elbowF: -1.75, armB: -1.2, elbowB: -1.9, thighF: 0.14, thighB: -0.14, lean: 0.06 };
+const SWORDSMAN_STANCE: Partial<Pose> = { armF: -0.22, elbowF: -1.45, lean: 0.04 };
 
 export const ROSTER: RosterEntry[] = [
   { id: "kid", name: "Skinny kid", blurb: "quick on his feet, light hits", tier: 1, strokes: weigh(0.8, kid()) },
-  { id: "dog", name: "Dog", blurb: "trots fast, bites", tier: 1, strokes: dog() },
-  { id: "boxer", name: "Boxer", blurb: "fast fists, gloves up", tier: 2, strokes: boxer() },
-  { id: "karate", name: "Karate guy", blurb: "strong straight punch and kick", tier: 2, strokes: karate() },
-  { id: "ninja", name: "Ninja", blurb: "low stance, short blade", tier: 2, strokes: ninja() },
-  { id: "swordsman", name: "Swordsman", blurb: "long reach with the sword", tier: 2, strokes: swordsman() },
-  { id: "pehelwan", name: "Pehelwan", blurb: "sumo-wrestler bulk, a stomp that shakes the ground", tier: 3, strokes: pehelwan(), signature: "quake" },
+  { id: "dog", name: "Dog", blurb: "trots fast, savage Dog bite", tier: 1, strokes: dog(), signature: "bite" },
+  { id: "boxer", name: "Boxer", blurb: "fast fists, a haymaker that hits huge", tier: 2, strokes: boxer(), signature: "haymaker" },
+  { id: "karate", name: "Karate guy", blurb: "strong punch and kick, a flying kick", tier: 2, strokes: karate(), signature: "flykick" },
+  { id: "ninja", name: "Ninja", blurb: "extra fast, springs back throwing blades", tier: 2, strokes: ninja(), signature: "blades", speedMult: 1.3 },
+  { id: "swordsman", name: "Swordsman", blurb: "long reach, slices with the sword", tier: 2, strokes: swordsman(), stance: SWORDSMAN_STANCE, signature: "slash" },
+  { id: "pehelwan", name: "Pehelwan", blurb: "sumo-wrestler bulk, a stomp that shakes the ground", tier: 3, strokes: pehelwan(), signature: "quake", hpMult: 1.45 },
   { id: "halloween", name: "Halloween", blurb: "pumpkin head, throws pumpkins", tier: 3, strokes: halloween(), signature: "pumpkin" },
   { id: "skeleton", name: "Skeleton", blurb: "falls to bits, snaps back next to you", tier: 3, strokes: skeleton(), signature: "bones" },
-  { id: "bodybuilder", name: "Bodybuilder", blurb: "hulking, huge arms, a leap across the arena", tier: 3, strokes: bodybuilder(), size: 1.2, stance: HULK_STANCE, signature: "leap" },
+  { id: "bodybuilder", name: "Hulk", blurb: "hulking, huge arms, a leap that smashes for 50+", tier: 3, strokes: bodybuilder(), size: 1.38, signature: "leap", hpMult: 1.8 },
   { id: "phantom", name: "Phantom Delux", blurb: "gentleman thief, disappears in a flash", tier: 3, strokes: phantom(), signature: "phantom" },
   { id: "spiderman", name: "Spider-Man", blurb: "wall-crawler, webs you up for 3 seconds", tier: 3, strokes: spiderman(), signature: "web" },
 ];
