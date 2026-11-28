@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { pickPhysics } from "../play/renderer-pref";
 import { RotateButton } from "../play/rotate";
-import { adoptFighter, myFighter } from "../fighters";
+import { adoptFighter, myFighter, padToFight } from "../fighters";
 import { PENCILS, hasInk, type Stroke } from "../ink";
 import { RivalThumb } from "../rivals";
 import { SketchModal } from "../sketch-modal";
@@ -60,7 +60,7 @@ export default function NearbyClient() {
     accept: () => {},
     decline: () => {},
     rematch: () => {},
-    drawn: (_s: Stroke[]) => {},
+    drawn: (_s: InkStroke[]) => {},
   });
 
   useEffect(() => {
@@ -281,8 +281,8 @@ export default function NearbyClient() {
         if (myRole === "guest") join();
         else void create();
       },
-      drawn: (strokes: Stroke[]) => {
-        drawing = strokes as InkStroke[];
+      drawn: (strokes: InkStroke[]) => {
+        drawing = strokes;
         adoptFighter(strokes);
         setMineStrokes(strokes);
       },
@@ -502,10 +502,11 @@ export default function NearbyClient() {
           pen={pen}
           onPen={setPen}
           onCancel={() => setPad(false)}
-          onDone={(next) => {
+          onDone={(next, extras) => {
             setPad(false);
-            if (!hasInk(next)) return;
-            actions.current.drawn(next);
+            const fight = padToFight(next, extras);
+            if (!hasInk(fight)) return;
+            actions.current.drawn(fight);
             const want = needDraw;
             setNeedDraw(null);
             if (want === "guest") actions.current.join();

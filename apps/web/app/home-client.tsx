@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { ROSTER, type Difficulty, type RosterId } from "@nf/sim";
 import { judgeDrawing } from "./reading";
 import { MIN_STEP2, PENCILS, clamp01, hasInk, paintInk, type Pt, type Stroke } from "./ink";
-import { SketchModal } from "./sketch-modal";
-import { MAX_FIGHTERS, emptyBook, loadBook, newId, saveBook, strokesOf, type FighterBook } from "./fighters";
+import { SketchModal, specialIcon, specialName, type PadExtras, type PadPanel } from "./sketch-modal";
+import { MAX_FIGHTERS, emptyBook, fighterOf, loadBook, newId, presetOf, saveBook, specialOf, strokesOf, type FighterBook } from "./fighters";
 import { LEVELS, RivalCard, RivalPicker, RivalThumb } from "./rivals";
 import { OfflineHint, InstallButton, InstallDialog, useFirstVisitInstall } from "./offline";
 import { GuideButton, HowToPlay, useFirstVisitGuide } from "./guide";
@@ -33,8 +33,10 @@ export function HomeClient() {
   const [installDlg, setInstallDlg] = useState(false);
   useFirstVisitInstall(() => setInstallDlg(true), guide);
   useFirstVisitGuide(() => setGuide(true));
-  /** which fighter (id) is open on the big drawing pad */
-  const [big, setBig] = useState<string | null>(null);
+  /** which fighter (id) is open on the big drawing pad, and on what (the page, or a picker) */
+  const [bigPad, setBigPad] = useState<{ id: string; panel: PadPanel } | null>(null);
+  const big = bigPad?.id ?? null;
+  const setBig = (id: string | null, panel: PadPanel = "page") => setBigPad(id ? { id, panel } : null);
   /** "draw your fighter first": which player still needs a drawing, and what to do once there is one */
   const [drawFirst, setDrawFirst] = useState<{ who: "p1" | "p2"; action: Action } | null>(null);
   const [picker, setPicker] = useState(false);
@@ -75,6 +77,13 @@ export function HomeClient() {
     });
   }
   const setStrokes = (id: string, strokes: Stroke[]) => update((b) => ({ ...b, fighters: b.fighters.map((f) => (f.id === id ? { ...f, strokes } : f)) }));
+  /** a page back from the big pad: its drawing, and its picks (a ready-made fighter / a special move) */
+  const withPage = (b: FighterBook, id: string, strokes: Stroke[], x: PadExtras): FighterBook => ({
+    ...b,
+    fighters: b.fighters.map((f) => (f.id === id ? { id: f.id, strokes, ...(x.preset ? { preset: x.preset } : {}), ...(x.special && !x.preset ? { special: x.special } : {}) } : f)),
+  });
+  /** clear a box: its drawing and its picks */
+  const clearPage = (id: string) => update((b) => withPage(b, id, [], { special: null, preset: null }));
   function addFighter() {
     if (book.fighters.length >= MAX_FIGHTERS) return;
     const id = newId();
@@ -190,9 +199,14 @@ export function HomeClient() {
               {drawFirst.action === "cpu" ? "Choose a rival →" : drawFirst.action === "2p" ? "Start the duel →" : "Create the room →"}
             </button>
           ) : (
-            <button type="button" className="text-btn" data-testid="draw-first-big" onClick={() => setBig(waitingId)}>
-              ⤢ Draw it big
-            </button>
+            <>
+              <button type="button" className="text-btn" data-testid="draw-first-big" onClick={() => setBig(waitingId)}>
+                ⤢ Draw it big
+              </button>
+              <button type="button" className="text-btn" data-testid="draw-first-pick" onClick={() => setBig(waitingId, "fighters")}>
+                👤 or pick one
+              </button>
+            </>
           )}
           <button type="button" className="draw-first-x" aria-label="Not now" onClick={() => setDrawFirst(null)}>
             ✕
@@ -210,14 +224,18 @@ export function HomeClient() {
             key={f.id}
             id={f.id}
             index={index}
-            strokes={f.strokes}
+            strokes={strokesOf(book, f.id)}
+            preset={presetOf(f)?.name ?? null}
+            special={specialOf(f)}
             pen={pen}
             isP1={book.p1 === f.id}
             isP2={book.p2 === f.id}
             needsInk={waitingId === f.id && !waitingReady}
             canDelete={book.fighters.length > 1}
             onChange={(next) => setStrokes(f.id, next)}
+            onClear={() => clearPage(f.id)}
             onExpand={() => setBig(f.id)}
+            onPickFighter={() => setBig(f.id, "fighters")}
             onPick={(who) => select(who, f.id)}
             onDelete={() => deleteFighter(f.id)}
           />
@@ -238,20 +256,23 @@ export function HomeClient() {
       <div className="home-offline">
         <OfflineHint />
       </div>
-      {big !== null && (
+      {bigPad !== null && big !== null && (
         <SketchModal
           title={`Fighter ${book.fighters.findIndex((f) => f.id === big) + 1}${big === book.p1 ? " (you)" : big === book.p2 ? " (player 2)" : ""}`}
-          strokes={strokesOf(book, big)}
+          strokes={fighterOf(book, big)?.strokes ?? []}
+          special={fighterOf(book, big)?.special ?? null}
+          preset={fighterOf(book, big)?.preset ?? null}
+          panel={bigPad.panel}
           pen={pen}
           onPen={setPen}
           onCancel={() => setBig(null)}
-          onDone={(next) => {
+          onDone={(next, extras) => {
             const id = big;
             setBig(null);
-            const nb: FighterBook = { ...book, fighters: book.fighters.map((f) => (f.id === id ? { ...f, strokes: next } : f)) };
+            const nb = withPage(book, id, next, extras);
             update(() => nb);
             // asked to draw first: carry on with what you were doing
-            if (drawFirst && id === waitingId && hasInk(next)) start(drawFirst.action, nb);
+            if (drawFirst && id === waitingId && hasInk(strokesOf(nb, id))) start(drawFirst.action, nb);
           }}
         />
       )}
@@ -309,27 +330,39 @@ function Slot({
   id,
   index,
   strokes,
+  preset,
+  special,
   pen,
   isP1,
   isP2,
   needsInk,
   canDelete,
   onChange,
+  onClear,
   onExpand,
+  onPickFighter,
   onPick,
   onDelete,
 }: {
   id: string;
   index: number;
   strokes: Stroke[];
+  /** a ready-made fighter's name (the box is locked), or null for your own drawing */
+  preset: string | null;
+  /** the special move it fights with (picked, or a ready-made fighter's own) */
+  special: string | null;
   pen: string;
   isP1: boolean;
   isP2: boolean;
   needsInk: boolean;
   canDelete: boolean;
   onChange: (strokes: Stroke[]) => void;
+  /** wipe the box: the drawing and its picks */
+  onClear: () => void;
   /** open this drawing on the big drawing pad */
   onExpand: () => void;
+  /** open the big pad on the ready-made fighters */
+  onPickFighter: () => void;
   onPick: (who: "p1" | "p2") => void;
   onDelete: () => void;
 }) {
@@ -341,7 +374,8 @@ function Slot({
   const [inked, setInked] = useState(hasInk(strokes));
   const [sure, setSure] = useState(false);
   // live stats as you draw: draw a part over again and watch its number go up
-  const card = useMemo(() => (hasInk(strokes) ? judgeDrawing(strokes, index) : null), [strokes, index]);
+  const card = useMemo(() => (hasInk(strokes) && !preset ? judgeDrawing(strokes, index) : null), [strokes, index, preset]);
+  const locked = !!preset;
 
   useEffect(() => {
     if (drawing.current) return;
@@ -375,7 +409,7 @@ function Slot({
   const n = index + 1;
   return (
     <div className={`slot-wrap${isP1 ? " sel-p1" : ""}${isP2 ? " sel-p2" : ""}${needsInk ? " needs-ink" : ""}`} data-fid={id} data-testid={`tile-${index}`}>
-      <div className="slot">
+      <div className="slot" data-locked={locked ? "true" : "false"}>
         <span className="slot-label">{n}</span>
         {(isP1 || isP2) && (
           <span className="slot-badges">
@@ -383,11 +417,26 @@ function Slot({
             {isP2 && <span className="slot-badge p2">P2</span>}
           </span>
         )}
-        {!inked && <span className="slot-hint">{needsInk ? "draw your fighter here" : "draw a fighter"}</span>}
+        {!inked && (
+          <span className="slot-hint">
+            <span>
+              {needsInk ? "draw your fighter here" : "draw a fighter"}
+              <span className="slot-hint-or">or tap 👤 to pick one</span>
+            </span>
+          </span>
+        )}
+        {(preset || special) && (
+          <span className={`slot-chip${locked ? " locked" : ""}`} data-testid={`slot-chip-${index}`} title={locked ? `${preset}: ready-made, can't be edited` : `Special move: ${specialName(special)}`}>
+            {locked ? `🔒 ${preset}` : `${specialIcon(special)} ${specialName(special)}`}
+          </span>
+        )}
         <canvas
           ref={canvasRef}
           data-testid={`slot-${index}`}
+          aria-label={locked ? `${preset}, a ready-made fighter: open it on the big pad` : `Draw fighter ${index + 1}`}
+          onClick={locked ? onExpand : undefined}
           onPointerDown={(event) => {
+            if (locked) return;
             try {
               event.currentTarget.setPointerCapture(event.pointerId);
             } catch {
@@ -399,7 +448,7 @@ function Slot({
             paintInk(canvasRef.current, local.current);
           }}
           onPointerMove={(event) => {
-            if (!drawing.current) return;
+            if (locked || !drawing.current) return;
             const stroke = local.current[local.current.length - 1];
             const next = point(event);
             const last = stroke.points[stroke.points.length - 1];
@@ -414,7 +463,10 @@ function Slot({
           <button className="slot-expand" type="button" data-testid={`expand-${index}`} onClick={onExpand} aria-label={`Expand fighter ${n}: draw it big with colours and an eraser`} title="Draw big: colours, line weights, eraser, undo">
             ⤢
           </button>
-          <button className="slot-clear" type="button" data-testid={`clear-${index}`} onClick={() => onChange([])} aria-label={`Clear fighter ${n}`} title="Clear this drawing" disabled={!inked}>
+          <button className="slot-expand" type="button" data-testid={`pickfighter-${index}`} onClick={onPickFighter} aria-label={`Pick a ready-made fighter for box ${n}`} title="Pick a ready-made fighter, or a special move">
+            👤
+          </button>
+          <button className="slot-clear" type="button" data-testid={`clear-${index}`} onClick={onClear} aria-label={`Clear fighter ${n}`} title={locked ? "Take the ready-made fighter out" : "Clear this drawing"} disabled={!inked && !special}>
             clear
           </button>
         </div>
@@ -439,6 +491,12 @@ function Slot({
           </button>
         )}
       </div>
+      {locked && (
+        <p className="slot-stats" data-testid={`slot-stats-${index}`}>
+          <span>Ready-made · {special ? `${specialIcon(special)} ${specialName(special)}` : "no special"}</span>
+          <span className="slot-why">tap it to see it big, or ✎ draw your own</span>
+        </p>
+      )}
       {card && card.kind !== "rock" && (
         <p className="slot-stats" data-testid={`slot-stats-${index}`} title={(card.why ?? []).join("\n")}>
           <span>HP {card.hp} · hits ×{card.punch.toFixed(1)} · speed ×{card.speed.toFixed(1)}</span>

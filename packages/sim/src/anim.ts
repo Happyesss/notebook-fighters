@@ -512,7 +512,10 @@ export class Ragdoll {
   settled = 0;
   /** per joint: how far drawn ink hangs below it (a round head, a belly), so the floor holds the ink up */
   clear: number[];
-  constructor(joints: Joints, vel: Pt[], dt: number) {
+  /** the stage walls in local x (lo, hi): the body lands against them, it doesn't pass through */
+  walls: [number, number];
+  constructor(joints: Joints, vel: Pt[], dt: number, walls: [number, number] = [-6, 6]) {
+    this.walls = [Math.min(walls[0], walls[1]), Math.max(walls[0], walls[1])];
     this.p = joints.map((v) => ({ ...v }));
     this.q = joints.map((v, i) => ({ x: v.x - vel[i].x * dt, y: v.y - vel[i].y * dt }));
     this.clear = joints.map(() => 0);
@@ -567,6 +570,13 @@ export class Ragdoll {
           // friction
           this.q[i].x = this.q[i].x + (this.p[i].x - this.q[i].x) * 0.6;
         }
+        // the page's margin walls: the joint stops there and loses most of its sideways speed
+        const [lo, hi] = this.walls;
+        const pad = 0.04;
+        if (this.p[i].x < lo + pad || this.p[i].x > hi - pad) {
+          this.p[i].x = Math.max(lo + pad, Math.min(hi - pad, this.p[i].x));
+          this.q[i].x = this.p[i].x + (this.p[i].x - this.q[i].x) * 0.3;
+        }
       }
     }
     let moving = 0;
@@ -592,7 +602,9 @@ export class Tumble {
   private rel: Pt[];
   private ink: Pt[];
   private landed = false;
-  constructor(joints: Joints, ink: Pt[], impulse: Pt) {
+  private walls: [number, number];
+  constructor(joints: Joints, ink: Pt[], impulse: Pt, walls: [number, number] = [-6, 6]) {
+    this.walls = [Math.min(walls[0], walls[1]), Math.max(walls[0], walls[1])];
     const cx = ink.reduce((t, q) => t + q.x, 0) / (ink.length || 1);
     const cy = ink.reduce((t, q) => t + q.y, 0) / (ink.length || 1);
     this.x = cx;
@@ -631,6 +643,21 @@ export class Tumble {
       this.landed = this.t > 0.6;
     }
     if (this.landed) this.vx *= Math.exp(-dt * 4);
+    // the margin walls: the whole drawing stops against them
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (const q of this.ink) {
+      const x = rot(q).x;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+    }
+    if (this.x + minX < this.walls[0]) {
+      this.x = this.walls[0] - minX;
+      this.vx = Math.abs(this.vx) * 0.2;
+    } else if (this.x + maxX > this.walls[1]) {
+      this.x = this.walls[1] - maxX;
+      this.vx = -Math.abs(this.vx) * 0.2;
+    }
     this.p = this.rel.map((q) => {
       const r = rot(q);
       return { x: this.x + r.x, y: this.y + r.y };
@@ -697,7 +724,7 @@ export class Animator {
   ragdoll: Ragdoll | Tumble | RapierRagdoll | RapierTumble | null = null;
   /** KO physics: the hand-written verlet ragdoll, or Rapier2D (deterministic build) when loaded */
   physics: "classic" | "rapier" = "classic";
-  /** stage walls in this fighter's local x, set by the sim before a knockout (Rapier ragdoll only) */
+  /** stage walls in this fighter's local x, set by the sim before a knockout (every ragdoll keeps inside them) */
   walls: [number, number] = [-6, 6];
   private gravity = DEFAULT_ANIM.gravity;
   /** seconds since the knockout (drives a serpent's dying twitch) */
@@ -838,7 +865,7 @@ export class Animator {
     if (this.rig.plan === "vehicle") {
       // a car has nothing to flop: it rolls over onto its roof
       const ink = fightStrokes(this.rig, this.joints, this.deform).flatMap((s) => s.points);
-      this.ragdoll = this.physics === "rapier" && physicsReady() ? new RapierTumble(this.joints, ink, impulse, dt, this.gravity, this.walls) : new Tumble(this.joints, ink, impulse);
+      this.ragdoll = this.physics === "rapier" && physicsReady() ? new RapierTumble(this.joints, ink, impulse, dt, this.gravity, this.walls) : new Tumble(this.joints, ink, impulse, this.walls);
     } else if (this.physics === "rapier" && physicsReady()) {
       // the ragdoll's bodies come from the drawn lines, not the costume: a hulk's drawn chest would make a fat
       // torso capsule that starts inside the foe it was fighting and gets shot into the sky
@@ -846,7 +873,7 @@ export class Animator {
       // follower chains (a beast's front legs, extra arms) become real bodies too: hand the ragdoll the
       // extended joints; it returns them extended and the skin reads the chains from there
       this.ragdoll = new RapierRagdoll(extendedJoints(this.rig, start), vel, ink, dt, this.gravity, this.walls);
-    } else this.ragdoll = new Ragdoll(start, vel, dt);
+    } else this.ragdoll = new Ragdoll(start, vel, dt, this.walls);
     this.move = "ko";
     this.time = 0;
     this.shiver = 1;

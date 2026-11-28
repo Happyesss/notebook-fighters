@@ -9,12 +9,20 @@ import type { Pt } from "@nf/shared";
 
 export type Element = "fire" | "water" | "lightning" | "ice";
 /** the big rivals' own specials: nobody draws these, the fighter comes with one */
-export type Signature = "pumpkin" | "bones" | "quake" | "leap" | "phantom" | "web" | "bite" | "haymaker" | "flykick" | "blades" | "slash";
+export type Signature = "pumpkin" | "bones" | "quake" | "leap" | "phantom" | "web" | "bite" | "haymaker" | "flykick" | "blades" | "slash" | "chalk" | "boomerang" | "stretch" | "longkick";
 export type PowerKind = Element | "wings" | "shield" | "spikes" | Signature;
 export const ELEMENTS: Element[] = ["fire", "water", "lightning", "ice"];
 /** the powers a drawing can have (the signatures are not drawn) */
 export const POWER_KINDS: PowerKind[] = ["fire", "water", "lightning", "ice", "wings", "shield", "spikes"];
-export const SIGNATURES: Signature[] = ["pumpkin", "bones", "quake", "leap", "phantom", "web", "bite", "haymaker", "flykick", "blades", "slash"];
+export const SIGNATURES: Signature[] = ["pumpkin", "bones", "quake", "leap", "phantom", "web", "bite", "haymaker", "flykick", "blades", "slash", "chalk", "boomerang", "stretch", "longkick"];
+/**
+ * The specials a player can clip onto a drawing from the drawing pad (moves no doodle gives you), in the
+ * order the pad lists them. In a drawn fighter's hands each one is tuned down to a fair hit (PICKED_DMG).
+ */
+export const PICKABLE: Signature[] = ["leap", "flykick", "haymaker", "stretch", "longkick", "boomerang", "blades", "web", "slash", "bite", "pumpkin", "quake", "chalk", "phantom", "bones"];
+/** damage multiplier for a special picked for a drawing (the rivals' versions were tuned for their own bodies) */
+export const PICKED_DMG: Partial<Record<Signature, number>> = { leap: 0.3, haymaker: 0.45, flykick: 0.75, slash: 0.75, bite: 0.85, quake: 0.6, chalk: 0.8 };
+export const isPickable = (k: unknown): k is Signature => typeof k === "string" && (PICKABLE as string[]).includes(k);
 export const isSignature = (k: PowerKind | null | undefined): k is Signature => !!k && (SIGNATURES as string[]).includes(k);
 
 export type Shape = "bolt" | "zigzag" | "wave" | "drop" | "loop" | "line" | "curve";
@@ -123,7 +131,7 @@ export const POWER_INFO: Record<PowerKind, { name: string; special: string; pass
   pumpkin: { name: "Pumpkin", special: "Throw pumpkin", passive: "lobs a pumpkin over in an arc: it splats for damage and a short stagger", cooldown: 4.2, word: "SPLAT!" },
   bones: { name: "Bones", special: "Bone scatter", passive: "falls apart into a pile of bones (the next hit passes through), then snaps back together a step forward with a bony strike", cooldown: 5, word: "CLACK!" },
   quake: { name: "Ground shake", special: "Ground shake", passive: "a mighty stomp sends a shockwave along the ground that does heavy damage and staggers anyone standing on it: jump over it", cooldown: 5.2, word: "STOMP!" },
-  leap: { name: "Mega leap", special: "Mega leap", passive: "a huge jump across the arena that lands in a crushing smash (over 50 damage) on anyone near the landing", cooldown: 6, word: "SMASH!" },
+  leap: { name: "Mega leap", special: "Mega leap", passive: "a huge jump across the arena that lands in a crushing smash on anyone near the landing", cooldown: 6, word: "SMASH!" },
   phantom: { name: "Phase out", special: "Phase out", passive: "turns invisible and untouchable for a few seconds, slipping through attacks with spectral speed", cooldown: 5.5, word: "VANISH!" },
   bite: { name: "Dog bite", special: "Dog bite", passive: "lunges and sinks its teeth in: a savage bite that hurts a lot", cooldown: 4.4, word: "CHOMP!" },
   haymaker: { name: "Haymaker", special: "Haymaker", passive: "winds up one huge punch that does enormous damage if it lands (block it!)", cooldown: 5.4, word: "KA-POW!" },
@@ -131,6 +139,10 @@ export const POWER_INFO: Record<PowerKind, { name: string; special: string; pass
   blades: { name: "Blade throw", special: "Blade throw", passive: "springs backwards and flings three blades at you", cooldown: 4.4, word: "SHING!" },
   slash: { name: "Sword slash", special: "Sword slash", passive: "steps in and slices with the sword for big damage", cooldown: 4.4, word: "SLASH!" },
   web: { name: "Web shot", special: "Web shot", passive: "leaps and fires a web that grabs the opponent: tangled for 3 seconds, unable to move or attack", cooldown: 6, word: "THWIP!" },
+  chalk: { name: "Chalk", special: "Chalk throw", passive: "hurls a piece of classroom chalk that explodes into a blinding dust cloud", cooldown: 4.4, word: "SILENCE!" },
+  boomerang: { name: "Boomerang", special: "Boomerang", passive: "throws a boomerang that curves out across the page and comes back: it can hit going out or on the way back", cooldown: 4.2, word: "WHUP!" },
+  stretch: { name: "Stretch punch", special: "Stretch punch", passive: "the arm shoots out like a spring and punches from far across the page", cooldown: 4.4, word: "BOING!" },
+  longkick: { name: "Long kick", special: "Long kick", passive: "a leg stretches out low along the floor and sweeps the foe off its feet: jump over it", cooldown: 4.6, word: "SWEEP!" },
 };
 
 /** element counters: water douses fire, fire melts ice, ice freezes water, lightning shocks water */

@@ -15,7 +15,7 @@
     "@nf/shared": "workspace:*"
   },
   "scripts": {
-    "test": "tsx test/rig.ts && tsx test/shapes.ts && tsx test/recognize.ts && tsx test/duel.ts && tsx test/ko.ts && tsx test/powers.ts && tsx test/specials.ts && tsx test/signatures.ts && tsx test/stats.ts && tsx test/edge.ts && tsx test/reach.ts && tsx test/versus.ts && tsx test/scribble.ts && tsx test/rivalcheck.ts && tsx test/rapier.ts && tsx test/roster.ts && tsx test/nearby.ts",
+    "test": "tsx test/rig.ts && tsx test/shapes.ts && tsx test/recognize.ts && tsx test/duel.ts && tsx test/ko.ts && tsx test/powers.ts && tsx test/specials.ts && tsx test/signatures.ts && tsx test/stats.ts && tsx test/edge.ts && tsx test/reach.ts && tsx test/versus.ts && tsx test/scribble.ts && tsx test/rivalcheck.ts && tsx test/rapier.ts && tsx test/roster.ts && tsx test/nearby.ts && tsx test/picks.ts && tsx test/allfights.ts 1",
     "test:rig": "tsx test/rig.ts",
     "test:shapes": "tsx test/shapes.ts",
     "test:recognize": "tsx test/recognize.ts",

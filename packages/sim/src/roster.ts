@@ -9,7 +9,7 @@ import type { Difficulty } from "./sim";
 import type { Pose } from "./anim";
 import type { Signature } from "./powers";
 
-export type RosterId = "bodybuilder" | "ninja" | "pehelwan" | "boxer" | "kid" | "karate" | "swordsman" | "dog" | "halloween" | "skeleton" | "phantom" | "spiderman";
+export type RosterId = "bodybuilder" | "ninja" | "pehelwan" | "boxer" | "kid" | "karate" | "swordsman" | "dog" | "halloween" | "skeleton" | "phantom" | "spiderman" | "teacher" | "explorer" | "robot" | "kickboxer";
 export type RosterEntry = {
   id: RosterId;
   name: string;
@@ -22,9 +22,10 @@ export type RosterEntry = {
   stance?: Partial<Pose>;
   /** its own special (instead of drawing itself a power to match yours) */
   signature?: Signature;
-  /** multipliers on top of the usual rival strength (hit points, walking speed) */
+  /** multipliers on top of the usual rival strength (hit points, walking speed, how hard every hit lands) */
   hpMult?: number;
   speedMult?: number;
+  dmgMult?: number;
 };
 
 function pencil(seed: number) {
@@ -1146,19 +1147,312 @@ function spiderman(): InkStroke[] {
   return [...read, ...D];
 }
 
+function teacher(): InkStroke[] {
+  const c = "#2a241c";     // dark ink outline
+  const white = "#f5f5f0"; // crisp white collared shirt
+  const skirt = "#24334a"; // classic navy blue skirt
+  const skirtDark = "#162030";
+  const belt = "#1c1612";
+  const tie = "#c23b32";   // red grading pen / ribbon tie
+  const wood = "#c4962c";  // wooden school ruler
+  const gold = "#d49b3d";
+  const hair = "#3b2618";  // dark brunette teacher bun/hair
+
+  const p = pencil(101);
+  const q = pencil(102);
+
+  // Read skeleton: proper upright posture, teacher standing with authority
+  const read: InkStroke[] = [
+    { color: c, points: p.ellipse(0.5, 0.145, 0.062, 0.068) }, // head
+    { color: c, points: p.path([[0.5, 0.215], [0.5, 0.54]]) },   // torso
+    { color: c, points: p.path([[0.5, 0.28], [0.41, 0.38], [0.38, 0.47]]) }, // back arm
+    { color: c, points: p.path([[0.5, 0.28], [0.61, 0.37], [0.67, 0.42]]) }, // front arm holding ruler
+    { color: c, points: p.path([[0.5, 0.54], [0.45, 0.73], [0.44, 0.93]]) }, // back leg
+    { color: c, points: p.path([[0.5, 0.54], [0.56, 0.73], [0.58, 0.93]]) }, // front leg
+    // Held wooden ruler (read as weapon)
+    { color: wood, points: p.path([[0.67, 0.42], [0.85, 0.23]]) },
+  ];
+
+  const D: InkStroke[] = [
+    // ── SPECTACLES / GLASSES ──
+    deco(c, q.ellipse(0.48, 0.142, 0.015, 0.013), "head", 1.5),
+    deco(c, q.ellipse(0.53, 0.142, 0.015, 0.013), "head", 1.5),
+    deco(c, q.path([[0.495, 0.142], [0.515, 0.142]]), "head", 1.6), // bridge
+    deco(c, q.path([[0.465, 0.142], [0.44, 0.135]]), "head", 1.2),  // left temple
+    deco(c, q.path([[0.545, 0.142], [0.56, 0.135]]), "head", 1.2),  // right temple
+    // stern eyes & sharp eyebrows
+    deco(c, q.path([[0.47, 0.125], [0.495, 0.132]]), "head", 1.4),
+    deco(c, q.path([[0.54, 0.125], [0.515, 0.132]]), "head", 1.4),
+    deco(c, q.ellipse(0.485, 0.142, 0.003, 0.004), "head", 2.0),
+    deco(c, q.ellipse(0.525, 0.142, 0.003, 0.004), "head", 2.0),
+    // strict no-nonsense mouth
+    deco(c, q.path([[0.485, 0.178], [0.52, 0.176]]), "head", 1.2),
+
+    // ── TEACHER HAIR (tidy bun with pencil/pin) ──
+    deco(hair, q.path([[0.44, 0.115], [0.435, 0.08], [0.465, 0.07], [0.50, 0.075], [0.54, 0.07], [0.565, 0.085], [0.56, 0.12]]), "head", 1.6),
+    deco(hair, q.path([[0.445, 0.085], [0.47, 0.078], [0.50, 0.082], [0.53, 0.078], [0.555, 0.09]]), "head", 1.2),
+    // hair bun at back
+    deco(hair, q.ellipse(0.43, 0.09, 0.016, 0.018), "head", 1.4),
+    // yellow pencil stuck through the hair bun
+    deco(gold, q.path([[0.40, 0.115], [0.46, 0.065]]), "head", 1.5),
+    deco(tie, q.path([[0.40, 0.115], [0.41, 0.105]]), "head", 1.6), // pink eraser tip!
+
+    // ── SHIRT (WHITE BUTTON-UP BLOUSE) ──
+    // crisp collar flaps
+    deco(white, q.path([[0.45, 0.215], [0.475, 0.265], [0.50, 0.24], [0.525, 0.265], [0.55, 0.215]]), "torso", 2.0),
+    deco(c, q.path([[0.45, 0.215], [0.475, 0.265], [0.50, 0.24], [0.525, 0.265], [0.55, 0.215]]), "torso", 1.2),
+    // neat neck ribbon / bow tie
+    deco(tie, q.path([[0.485, 0.245], [0.515, 0.245]]), "torso", 2.2),
+    deco(tie, q.path([[0.49, 0.25], [0.48, 0.31]]), "torso", 1.6),
+    deco(tie, q.path([[0.51, 0.25], [0.52, 0.31]]), "torso", 1.6),
+    // shirt body contours (tucked in at waist)
+    deco(white, q.path([[0.44, 0.23], [0.43, 0.35], [0.445, 0.50]]), "torso", 1.6),
+    deco(c, q.path([[0.44, 0.23], [0.43, 0.35], [0.445, 0.50]]), "torso", 1.2),
+    deco(white, q.path([[0.56, 0.23], [0.57, 0.35], [0.555, 0.50]]), "torso", 1.6),
+    deco(c, q.path([[0.56, 0.23], [0.57, 0.35], [0.555, 0.50]]), "torso", 1.2),
+    // center button placket with buttons
+    deco(c, q.path([[0.50, 0.24], [0.50, 0.50]]), "torso", 1.0),
+    deco(c, q.ellipse(0.50, 0.32, 0.002, 0.003), "torso", 1.8),
+    deco(c, q.ellipse(0.50, 0.38, 0.002, 0.003), "torso", 1.8),
+    deco(c, q.ellipse(0.50, 0.44, 0.002, 0.003), "torso", 1.8),
+    // shirt pocket with red grading pen
+    deco(c, q.path([[0.52, 0.31], [0.545, 0.31], [0.545, 0.36], [0.52, 0.36], [0.52, 0.31]]), "torso", 0.9),
+    deco(tie, q.path([[0.53, 0.29], [0.53, 0.33]]), "torso", 1.8), // red pen clip!
+    // shirt sleeve cuffs
+    deco(c, q.path([[0.395, 0.44], [0.375, 0.47]]), "auto", 1.1),
+    deco(c, q.path([[0.655, 0.40], [0.675, 0.43]]), "auto", 1.1),
+
+    // ── SKIRT (NAVY BLUE A-LINE / PLEATED SKIRT) ──
+    // waistband with buckle
+    deco(belt, q.path([[0.44, 0.50], [0.56, 0.50], [0.56, 0.525], [0.44, 0.525], [0.44, 0.50]]), "torso", 1.6),
+    deco(gold, q.path([[0.49, 0.50], [0.51, 0.50], [0.51, 0.525], [0.49, 0.525], [0.49, 0.50]]), "torso", 1.2),
+    // skirt flared sides down to knees (y ~ 0.70)
+    deco(skirt, q.path([[0.44, 0.52], [0.39, 0.62], [0.38, 0.70]]), "torso", 2.0),
+    deco(c, q.path([[0.44, 0.52], [0.39, 0.62], [0.38, 0.70]]), "torso", 1.3),
+    deco(skirt, q.path([[0.56, 0.52], [0.61, 0.62], [0.62, 0.70]]), "torso", 2.0),
+    deco(c, q.path([[0.56, 0.52], [0.61, 0.62], [0.62, 0.70]]), "torso", 1.3),
+    // bottom hem line
+    deco(skirt, q.path([[0.38, 0.70], [0.44, 0.708], [0.50, 0.71], [0.56, 0.708], [0.62, 0.70]]), "torso", 2.0),
+    deco(c, q.path([[0.38, 0.70], [0.44, 0.708], [0.50, 0.71], [0.56, 0.708], [0.62, 0.70]]), "torso", 1.3),
+    // crisp skirt pleats
+    deco(skirtDark, q.path([[0.43, 0.525], [0.42, 0.62], [0.43, 0.705]]), "torso", 1.2),
+    deco(skirtDark, q.path([[0.47, 0.525], [0.47, 0.62], [0.48, 0.71]]), "torso", 1.2),
+    deco(skirtDark, q.path([[0.53, 0.525], [0.53, 0.62], [0.52, 0.71]]), "torso", 1.2),
+    deco(skirtDark, q.path([[0.57, 0.525], [0.58, 0.62], [0.57, 0.705]]), "torso", 1.2),
+
+    // ── LEGS BELOW SKIRT & SHOES ──
+    // stockings/tights below skirt
+    deco("#3a3028", q.path([[0.44, 0.71], [0.43, 0.81], [0.42, 0.91]]), "auto", 1.4),
+    deco("#3a3028", q.path([[0.56, 0.71], [0.57, 0.81], [0.58, 0.91]]), "auto", 1.4),
+    // teacher heeled pumps / dress shoes
+    deco(c, q.path([[0.39, 0.93], [0.45, 0.93], [0.44, 0.91], [0.40, 0.91], [0.39, 0.93]]), "auto", 1.6),
+    deco(c, q.path([[0.39, 0.93], [0.39, 0.945]]), "auto", 1.6), // low heel
+    deco(c, q.path([[0.55, 0.93], [0.61, 0.93], [0.60, 0.91], [0.56, 0.91], [0.55, 0.93]]), "auto", 1.6),
+    deco(c, q.path([[0.55, 0.93], [0.55, 0.945]]), "auto", 1.6), // low heel
+
+    // ── WOODEN SCHOOL RULER (bound rigid to weapon) ──
+    deco(gold, q.path([[0.665, 0.425], [0.845, 0.235], [0.855, 0.225], [0.675, 0.415]]), "weapon", 2.6),
+    deco("#3d2817", q.path([[0.665, 0.425], [0.845, 0.235], [0.855, 0.225], [0.675, 0.415], [0.665, 0.425]]), "weapon", 1.2),
+    // tick marks along the ruler
+    ...([0.15, 0.3, 0.45, 0.6, 0.75, 0.9].map((t) => {
+      const x0 = 0.67 + (0.85 - 0.67) * t;
+      const y0 = 0.42 + (0.23 - 0.42) * t;
+      return deco("#3d2817", q.path([[x0 - 0.006, y0 - 0.006], [x0 + 0.006, y0 + 0.006]]), "weapon", 1.0);
+    })),
+  ];
+
+  return [...read, ...D];
+}
+
+/** Explorer: a bush explorer in a wide-brimmed hat and rolled sleeves, a carved boomerang in his back hand. */
+function explorer(): InkStroke[] {
+  const c = "#5a4126";      // brown ink
+  const hat = "#7a5230";
+  const khaki = "#b59a5a";
+  const shorts = "#6b5a3a";
+  const wood = "#a0642d";
+  const red = "#c23b32";
+  const p = pencil(111);
+  const q = pencil(112);
+  const read: InkStroke[] = [
+    { color: c, points: p.ellipse(0.5, 0.16, 0.06, 0.068) },
+    { color: c, points: p.path([[0.5, 0.23], [0.5, 0.56]]) },
+    { color: c, points: p.path([[0.5, 0.3], [0.41, 0.39], [0.37, 0.47]]) },
+    { color: c, points: p.path([[0.5, 0.3], [0.6, 0.38], [0.65, 0.46]]) },
+    { color: c, points: p.path([[0.5, 0.56], [0.44, 0.74], [0.42, 0.93]]) },
+    { color: c, points: p.path([[0.5, 0.56], [0.57, 0.74], [0.59, 0.93]]) },
+  ];
+  const D: InkStroke[] = [
+    // wide-brimmed bush hat with a red band, one side of the brim pinned up
+    deco(hat, q.path([[0.39, 0.115], [0.45, 0.105], [0.55, 0.105], [0.61, 0.112]]), "head", 1.8),
+    deco(hat, q.path([[0.45, 0.106], [0.455, 0.07], [0.5, 0.058], [0.545, 0.07], [0.55, 0.106]]), "head", 1.4),
+    deco(red, q.path([[0.452, 0.096], [0.548, 0.096]]), "head", 1.3),
+    deco(hat, q.path([[0.39, 0.115], [0.385, 0.09]]), "head", 1.1),
+    // friendly face: eyes, nose, a big grin and a stubbly chin
+    deco(c, q.ellipse(0.485, 0.15, 0.004, 0.006), "head", 1.2),
+    deco(c, q.ellipse(0.525, 0.15, 0.004, 0.006), "head", 1.2),
+    deco(c, q.path([[0.505, 0.155], [0.51, 0.17], [0.502, 0.172]]), "head", 0.7),
+    deco(c, q.arc(0.505, 0.18, 0.022, 0.012, 0.3, 2.8, 6), "head", 0.9),
+    deco(c, q.path([[0.48, 0.205], [0.49, 0.208]]), "head", 0.6),
+    deco(c, q.path([[0.515, 0.208], [0.525, 0.205]]), "head", 0.6),
+    // khaki safari shirt: collar, pockets, rolled sleeves, a neckerchief
+    deco(red, q.path([[0.475, 0.235], [0.5, 0.26], [0.525, 0.235]]), "torso", 1.4),
+    deco(red, q.path([[0.5, 0.26], [0.495, 0.29]]), "torso", 1.2),
+    deco(khaki, q.path([[0.44, 0.26], [0.435, 0.4], [0.445, 0.53]]), "torso", 1.5),
+    deco(khaki, q.path([[0.56, 0.26], [0.565, 0.4], [0.555, 0.53]]), "torso", 1.5),
+    deco(c, q.path([[0.46, 0.31], [0.485, 0.31], [0.485, 0.345], [0.46, 0.345], [0.46, 0.31]]), "torso", 0.7),
+    deco(c, q.path([[0.515, 0.31], [0.54, 0.31], [0.54, 0.345], [0.515, 0.345], [0.515, 0.31]]), "torso", 0.7),
+    deco(khaki, q.path([[0.43, 0.35], [0.455, 0.37]]), "auto", 1.6),
+    deco(khaki, q.path([[0.575, 0.345], [0.6, 0.365]]), "auto", 1.6),
+    // belt with a canteen
+    deco(c, q.path([[0.44, 0.535], [0.56, 0.535]]), "torso", 1.6),
+    deco("#3f7fbf", q.ellipse(0.565, 0.565, 0.016, 0.02), "torso", 1.1),
+    // shorts and long socks, sturdy boots
+    deco(shorts, q.path([[0.445, 0.545], [0.43, 0.66], [0.48, 0.665], [0.495, 0.6]]), "auto", 1.2),
+    deco(shorts, q.path([[0.505, 0.6], [0.53, 0.665], [0.585, 0.655], [0.555, 0.545]]), "auto", 1.2),
+    deco(khaki, q.path([[0.425, 0.8], [0.45, 0.8]]), "auto", 1.4),
+    deco(khaki, q.path([[0.565, 0.8], [0.59, 0.8]]), "auto", 1.4),
+    deco(c, q.path([[0.39, 0.935], [0.445, 0.935], [0.44, 0.9], [0.415, 0.9]]), "auto", 1.6),
+    deco(c, q.path([[0.57, 0.935], [0.625, 0.935], [0.61, 0.9], [0.585, 0.9]]), "auto", 1.6),
+    // the carved boomerang held in the back hand, with a painted stripe
+    deco(wood, q.path([[0.33, 0.43], [0.355, 0.47], [0.4, 0.49]]), "auto", 2.4),
+    deco(red, q.path([[0.345, 0.455], [0.36, 0.47]]), "auto", 1.2),
+  ];
+  return [...read, ...D];
+}
+
+/** Robot: a tin toy robot with a boxy head, antenna and dials, and a spring-loaded arm. */
+function robot(): InkStroke[] {
+  const c = "#4a5866";      // steel ink
+  const tin = "#8aa0b2";
+  const red = "#c23b32";
+  const gold = "#c4962c";
+  const glow = "#2f9fb0";
+  const p = pencil(121);
+  const q = pencil(122);
+  const read: InkStroke[] = [
+    { color: c, points: p.ellipse(0.5, 0.155, 0.058, 0.062) },
+    { color: c, points: p.path([[0.5, 0.225], [0.5, 0.55]]) },
+    { color: c, points: p.path([[0.5, 0.29], [0.41, 0.36], [0.4, 0.46]]) },
+    { color: c, points: p.path([[0.5, 0.29], [0.6, 0.35], [0.66, 0.32]]) },
+    { color: c, points: p.path([[0.5, 0.55], [0.45, 0.74], [0.44, 0.93]]) },
+    { color: c, points: p.path([[0.5, 0.55], [0.56, 0.74], [0.57, 0.93]]) },
+  ];
+  const box = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+  const D: InkStroke[] = [
+    // boxy tin head over the round one, antenna with a red bulb, visor eyes and a grille mouth
+    deco(c, q.path(box(0.44, 0.1, 0.56, 0.21)), "head", 1.6),
+    deco(tin, q.path(box(0.448, 0.108, 0.552, 0.202)), "head", 1.0),
+    deco(c, q.path([[0.5, 0.1], [0.5, 0.06]]), "head", 1.2),
+    deco(red, q.ellipse(0.5, 0.052, 0.009, 0.009), "head", 1.6),
+    deco(glow, q.path([[0.465, 0.14], [0.49, 0.14]]), "head", 2.0),
+    deco(glow, q.path([[0.51, 0.14], [0.535, 0.14]]), "head", 2.0),
+    deco(c, q.path([[0.47, 0.18], [0.53, 0.18]]), "head", 0.8),
+    deco(c, q.path([[0.48, 0.172], [0.48, 0.188]]), "head", 0.6),
+    deco(c, q.path([[0.5, 0.172], [0.5, 0.188]]), "head", 0.6),
+    deco(c, q.path([[0.52, 0.172], [0.52, 0.188]]), "head", 0.6),
+    deco(c, q.path([[0.44, 0.14], [0.43, 0.14]]), "head", 1.4),
+    deco(c, q.path([[0.56, 0.14], [0.57, 0.14]]), "head", 1.4),
+    // the chest box with rivets, a heart dial and two switches
+    deco(c, q.path(box(0.43, 0.24, 0.57, 0.52)), "torso", 1.6),
+    deco(tin, q.path(box(0.438, 0.248, 0.562, 0.512)), "torso", 1.0),
+    deco(c, q.ellipse(0.5, 0.33, 0.026, 0.026), "torso", 1.1),
+    deco(red, q.path([[0.5, 0.33], [0.515, 0.315]]), "torso", 1.2),
+    deco(gold, q.path([[0.465, 0.42], [0.465, 0.44]]), "torso", 1.6),
+    deco(red, q.path([[0.5, 0.42], [0.5, 0.44]]), "torso", 1.6),
+    deco(glow, q.path([[0.535, 0.42], [0.535, 0.44]]), "torso", 1.6),
+    ...[[0.44, 0.255], [0.56, 0.255], [0.44, 0.505], [0.56, 0.505]].map(([x, y]) => deco(c, q.ellipse(x, y, 0.003, 0.003), "torso", 1.6)),
+    // spring coils on the arms, clamp hands
+    deco(gold, q.path([[0.47, 0.32], [0.46, 0.31], [0.45, 0.33], [0.44, 0.32], [0.43, 0.34]]), "auto", 1.0),
+    deco(gold, q.path([[0.55, 0.32], [0.56, 0.31], [0.57, 0.335], [0.58, 0.325], [0.59, 0.345]]), "auto", 1.0),
+    deco(c, q.path([[0.385, 0.47], [0.39, 0.49], [0.405, 0.49], [0.41, 0.47]]), "auto", 1.4),
+    deco(c, q.path([[0.66, 0.3], [0.68, 0.305], [0.68, 0.335], [0.66, 0.34]]), "auto", 1.4),
+    // hip plate, segmented legs and block feet
+    deco(c, q.path(box(0.45, 0.52, 0.55, 0.57)), "torso", 1.4),
+    deco(c, q.path([[0.435, 0.68], [0.475, 0.68]]), "auto", 1.0),
+    deco(c, q.path([[0.545, 0.68], [0.585, 0.68]]), "auto", 1.0),
+    deco(c, q.path([[0.43, 0.8], [0.465, 0.8]]), "auto", 1.0),
+    deco(c, q.path([[0.555, 0.8], [0.59, 0.8]]), "auto", 1.0),
+    deco(c, q.path(box(0.41, 0.905, 0.47, 0.935)), "auto", 1.5),
+    deco(c, q.path(box(0.54, 0.905, 0.6, 0.935)), "auto", 1.5),
+  ];
+  return [...read, ...D];
+}
+
+/** Kickboxer: wrapped hands, a headband and silk fight shorts; long legs, and a kick that sweeps along the floor. */
+function kickboxer(): InkStroke[] {
+  const c = "#6b3a24";      // warm brown ink
+  const red = "#c23b32";
+  const gold = "#c4962c";
+  const white = "#ece6da";
+  const blue = "#1d4f89";
+  const p = pencil(131);
+  const q = pencil(132);
+  const read: InkStroke[] = [
+    { color: c, points: p.ellipse(0.5, 0.15, 0.058, 0.066) },
+    { color: c, points: p.path([[0.5, 0.215], [0.5, 0.53]]) },
+    // hands up in a high guard
+    { color: c, points: p.path([[0.5, 0.28], [0.42, 0.35], [0.44, 0.26]]) },
+    { color: c, points: p.path([[0.5, 0.28], [0.59, 0.36], [0.64, 0.28]]) },
+    // long legs in a wide, bouncy stance (the front one drawn over: a strong kick)
+    { color: c, points: p.path([[0.5, 0.53], [0.41, 0.72], [0.36, 0.93]]) },
+    ...twice(c, p.path([[0.5, 0.53], [0.6, 0.72], [0.65, 0.93]]), q.path([[0.5, 0.532], [0.598, 0.722], [0.648, 0.928]])),
+  ];
+  const D: InkStroke[] = [
+    // a rope headband with long tails, focused eyes and a set jaw
+    deco(red, q.path([[0.445, 0.115], [0.555, 0.115]]), "head", 1.8),
+    deco(gold, q.path([[0.447, 0.12], [0.553, 0.12]]), "head", 0.8),
+    deco(red, q.path([[0.445, 0.118], [0.4, 0.13], [0.37, 0.16]]), "head", 1.2),
+    deco(red, q.path([[0.445, 0.12], [0.41, 0.15], [0.395, 0.185]]), "head", 1.1),
+    deco(c, q.path([[0.47, 0.135], [0.495, 0.14]]), "head", 0.9),
+    deco(c, q.path([[0.535, 0.135], [0.51, 0.14]]), "head", 0.9),
+    deco(c, q.ellipse(0.52, 0.148, 0.004, 0.006), "head", 1.2),
+    deco(c, q.path([[0.49, 0.18], [0.525, 0.178]]), "head", 0.9),
+    deco(c, q.path([[0.46, 0.1], [0.475, 0.08], [0.5, 0.09], [0.52, 0.078], [0.54, 0.095]]), "head", 1.0),
+    // a lean, ropy torso: shoulders, ribs, a prayer armband
+    deco(c, q.path([[0.45, 0.24], [0.43, 0.3], [0.445, 0.4], [0.455, 0.5]]), "torso", 0.9),
+    deco(c, q.path([[0.55, 0.24], [0.57, 0.3], [0.555, 0.4], [0.545, 0.5]]), "torso", 0.9),
+    deco(c, q.path([[0.47, 0.33], [0.5, 0.345], [0.53, 0.33]]), "torso", 0.7),
+    deco(c, q.path([[0.475, 0.4], [0.525, 0.4]]), "torso", 0.6),
+    deco(c, q.path([[0.48, 0.45], [0.52, 0.45]]), "torso", 0.6),
+    deco(red, q.path([[0.565, 0.3], [0.58, 0.33]]), "auto", 1.6),
+    // white hand wraps
+    deco(white, q.path([[0.43, 0.27], [0.45, 0.255]]), "auto", 2.4),
+    deco(white, q.path([[0.63, 0.29], [0.65, 0.275]]), "auto", 2.4),
+    deco(c, q.ellipse(0.44, 0.26, 0.018, 0.016), "auto", 1.0),
+    deco(c, q.ellipse(0.64, 0.28, 0.018, 0.016), "auto", 1.0),
+    // silk fight shorts with a gold waistband and side slits
+    deco(gold, q.path([[0.44, 0.525], [0.56, 0.525]]), "torso", 2.0),
+    deco(blue, q.path([[0.44, 0.53], [0.415, 0.63], [0.47, 0.64], [0.495, 0.58]]), "auto", 1.6),
+    deco(blue, q.path([[0.505, 0.58], [0.535, 0.64], [0.59, 0.63], [0.56, 0.53]]), "auto", 1.6),
+    deco(white, q.path([[0.47, 0.56], [0.5, 0.57], [0.53, 0.56]]), "torso", 0.8),
+    // ankle supports and bare feet
+    deco(white, q.path([[0.355, 0.88], [0.38, 0.88]]), "auto", 1.8),
+    deco(white, q.path([[0.635, 0.88], [0.66, 0.88]]), "auto", 1.8),
+    deco(c, q.path([[0.33, 0.935], [0.385, 0.935]]), "auto", 1.3),
+    deco(c, q.path([[0.635, 0.935], [0.69, 0.935]]), "auto", 1.3),
+  ];
+  return [...read, ...D];
+}
+
 const SWORDSMAN_STANCE: Partial<Pose> = { armF: -0.22, elbowF: -1.45, lean: 0.04 };
+const TEACHER_STANCE: Partial<Pose> = { armF: -0.22, elbowF: -1.45, armB: 0.18, elbowB: 1.1, lean: 0.02 };
 
 export const ROSTER: RosterEntry[] = [
   { id: "kid", name: "Skinny kid", blurb: "quick on his feet, light hits", tier: 1, strokes: weigh(0.8, kid()) },
+  { id: "explorer", name: "Explorer", blurb: "bush hat and a boomerang that comes back", tier: 1, strokes: explorer(), signature: "boomerang" },
   { id: "dog", name: "Dog", blurb: "trots fast, savage Dog bite", tier: 1, strokes: dog(), signature: "bite" },
   { id: "boxer", name: "Boxer", blurb: "fast fists, a haymaker that hits huge", tier: 2, strokes: boxer(), signature: "haymaker" },
   { id: "karate", name: "Karate guy", blurb: "strong punch and kick, a flying kick", tier: 2, strokes: karate(), signature: "flykick" },
   { id: "ninja", name: "Ninja", blurb: "extra fast, springs back throwing blades", tier: 2, strokes: ninja(), signature: "blades", speedMult: 1.3 },
   { id: "swordsman", name: "Swordsman", blurb: "long reach, slices with the sword", tier: 2, strokes: swordsman(), stance: SWORDSMAN_STANCE, signature: "slash" },
-  { id: "pehelwan", name: "Pehelwan", blurb: "sumo-wrestler bulk, a stomp that shakes the ground", tier: 3, strokes: pehelwan(), signature: "quake", hpMult: 1.45 },
+  { id: "robot", name: "Robot", blurb: "tin toy with a spring arm that punches from afar", tier: 2, strokes: robot(), signature: "stretch", speedMult: 0.92 },
+  { id: "kickboxer", name: "Kickboxer", blurb: "long legs, sweeps you off your feet from afar", tier: 2, strokes: kickboxer(), signature: "longkick" },
+  { id: "teacher", name: "Teacher", blurb: "strict disciplinarian, ruler reach and flying chalk", tier: 2, strokes: teacher(), stance: TEACHER_STANCE, signature: "chalk" },
+  { id: "pehelwan", name: "Pehelwan", blurb: "sumo-wrestler bulk, a stomp that shakes the ground", tier: 3, strokes: pehelwan(), signature: "quake", hpMult: 1.05 },
   { id: "halloween", name: "Halloween", blurb: "pumpkin head, throws pumpkins", tier: 3, strokes: halloween(), signature: "pumpkin" },
   { id: "skeleton", name: "Skeleton", blurb: "falls to bits, snaps back next to you", tier: 3, strokes: skeleton(), signature: "bones" },
-  { id: "bodybuilder", name: "Hulk", blurb: "hulking, huge arms, a leap that smashes for 50+", tier: 3, strokes: bodybuilder(), size: 1.38, signature: "leap", hpMult: 1.8 },
+  { id: "bodybuilder", name: "Hulk", blurb: "hulking, huge arms, a leap that lands in a crushing smash", tier: 3, strokes: bodybuilder(), size: 1.38, signature: "leap", hpMult: 1.2, dmgMult: 0.48 },
   { id: "phantom", name: "Phantom Delux", blurb: "gentleman thief, disappears in a flash", tier: 3, strokes: phantom(), signature: "phantom" },
   { id: "spiderman", name: "Spider-Man", blurb: "wall-crawler, webs you up for 3 seconds", tier: 3, strokes: spiderman(), signature: "web" },
 ];

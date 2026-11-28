@@ -465,6 +465,60 @@ export class NotebookView {
         ctx.restore();
       }
 
+      // Stretch punch / Long kick: a springy pencil limb out to a big fist or foot
+      if (f.stretch && !f.ko) {
+        const a = toScreen(f.stretch.a);
+        const b = toScreen(f.stretch.b);
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        const ux = (b.x - a.x) / (len || 1);
+        const uy = (b.y - a.y) / (len || 1);
+        ctx.save();
+        ctx.strokeStyle = f.color;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = Math.max(1.6, S * 0.011);
+        // a coiled spring along the limb: loops packed near the body, stretched near the fist
+        const coils = Math.max(3, Math.round(len / (S * 0.07)));
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        for (let k = 1; k <= coils * 6; k++) {
+          const t = k / (coils * 6);
+          const amp = S * 0.022 * (1 - t * 0.5);
+          const w = Math.sin(t * coils * Math.PI * 2);
+          ctx.lineTo(a.x + ux * len * t - uy * amp * w, a.y + uy * len * t + ux * amp * w);
+        }
+        ctx.stroke();
+        // speed lines behind the fist
+        ctx.globalAlpha = 0.45;
+        ctx.lineWidth = Math.max(1, S * 0.005);
+        for (let k = -1; k <= 1; k++) {
+          ctx.beginPath();
+          ctx.moveTo(b.x - ux * S * 0.08 - uy * k * S * 0.03, b.y - uy * S * 0.08 + ux * k * S * 0.03);
+          ctx.lineTo(b.x - ux * S * 0.2 - uy * k * S * 0.03, b.y - uy * S * 0.2 + ux * k * S * 0.03);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        // the fist (a round glove) or the foot (a flat oval)
+        ctx.fillStyle = "#fffaf1";
+        ctx.lineWidth = Math.max(1.6, S * 0.01);
+        ctx.beginPath();
+        if (f.stretch.low) ctx.ellipse(b.x + ux * S * 0.02, b.y, S * 0.055, S * 0.026, 0, 0, Math.PI * 2);
+        else ctx.arc(b.x, b.y, S * 0.042, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        if (!f.stretch.low) {
+          // knuckle lines
+          ctx.lineWidth = Math.max(1, S * 0.005);
+          for (let k = -1; k <= 1; k++) {
+            ctx.beginPath();
+            ctx.moveTo(b.x + ux * S * 0.015 - uy * k * S * 0.016, b.y + uy * S * 0.015 + ux * k * S * 0.016);
+            ctx.lineTo(b.x + ux * S * 0.038 - uy * k * S * 0.016, b.y + uy * S * 0.038 + ux * k * S * 0.016);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
       // KO: scribble-out + teacher's stamp
       if (f.ko) {
         if (this.koAt[i] === null) this.koAt[i] = now;
@@ -748,6 +802,67 @@ export class NotebookView {
         ctx.moveTo(at.x - dir * r * 1.1, at.y);
         ctx.lineTo(at.x - dir * r * 2.8, at.y + Math.sin(now * 25) * r * 0.3);
         ctx.stroke();
+      } else if (p.kind === "boomerang") {
+        // a carved wooden boomerang, whirling, with a painted stripe and a curved motion trail
+        ctx.save();
+        ctx.translate(at.x, at.y);
+        ctx.rotate(now * 16);
+        ctx.strokeStyle = "#5a4126";
+        ctx.fillStyle = "#c98a4b";
+        ctx.lineWidth = Math.max(1.4, S * 0.007);
+        const L = r * 2.1;
+        const T = r * 0.55;
+        ctx.beginPath();
+        ctx.moveTo(-L, -L * 0.35);
+        ctx.quadraticCurveTo(0, -T * 0.4, 0, -T);
+        ctx.quadraticCurveTo(T * 0.4, 0, L * 0.35, L);
+        ctx.lineTo(L * 0.35 + T, L - T * 0.4);
+        ctx.quadraticCurveTo(T * 1.1, T * 1.1, -L + T * 0.4, -L * 0.35 + T);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.strokeStyle = "#c23b32";
+        ctx.lineWidth = Math.max(1, S * 0.005);
+        ctx.beginPath();
+        ctx.moveTo(-L * 0.6, -L * 0.25);
+        ctx.lineTo(-L * 0.45, -L * 0.05);
+        ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = "#5a4126";
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = Math.max(1, S * 0.004);
+        ctx.beginPath();
+        ctx.arc(at.x, at.y, r * 2.6, Math.PI * 0.6, Math.PI * 1.1);
+        ctx.stroke();
+        ctx.restore();
+      } else if (p.kind === "chalk") {
+        // Classroom chalk projectile: pale rectangular chalk stick spinning in flight with chalk-dust puffs
+        const spin = now * 18 * dir;
+        ctx.save();
+        ctx.translate(at.x, at.y);
+        ctx.rotate(spin);
+        ctx.fillStyle = "#fffef0";
+        ctx.strokeStyle = "#4a453e";
+        ctx.lineWidth = Math.max(1.2, S * 0.006);
+        const cw = r * 1.8;
+        const ch = r * 0.7;
+        ctx.beginPath();
+        ctx.rect(-cw / 2, -ch / 2, cw, ch);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        // chalk dust trail puffs
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 245, 0.65)";
+        for (let k = 1; k <= 3; k++) {
+          const dx = -dir * (r * 1.6 * k);
+          const dy = Math.sin(now * 20 + k) * (r * 0.4);
+          ctx.beginPath();
+          ctx.arc(at.x + dx, at.y + dy, r * 0.45 * (1 - k * 0.2), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
     }
     ctx.restore();
@@ -900,6 +1015,10 @@ export class NotebookView {
         flykick: "#2a241c",
         blades: "#3a3470",
         slash: "#5b6b7a",
+        chalk: "#fdfdf5",
+        boomerang: "#a0642d",
+        stretch: "#c23b32",
+        longkick: "#2a241c",
       };
       const color = e.kind === "clash" ? e.color : (COL[e.power] ?? "#c23b32");
       const n = e.kind === "clash" ? 10 : 7;

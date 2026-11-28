@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { pickPhysics } from "../play/renderer-pref";
 import { RotateButton } from "../play/rotate";
-import { adoptFighter, myFighter } from "../fighters";
+import { adoptFighter, myFighter, padToFight } from "../fighters";
 import { PENCILS, hasInk, type Stroke } from "../ink";
 import { RivalThumb } from "../rivals";
 import { SketchModal } from "../sketch-modal";
@@ -60,7 +60,7 @@ export default function OnlineClient() {
   }, [copied]);
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const actions = useRef<{ create: () => void; join: (c: string) => void; retry: () => void; accept: () => void; decline: () => void; drawn: (s: Stroke[]) => void }>({
+  const actions = useRef<{ create: () => void; join: (c: string) => void; retry: () => void; accept: () => void; decline: () => void; drawn: (s: InkStroke[]) => void }>({
     create: () => {},
     join: () => {},
     retry: () => {},
@@ -257,8 +257,8 @@ export default function OnlineClient() {
       accept: () => session?.accept(),
       decline: () => session?.decline(),
       /** drawn on the big pad here: saved to the notebook (selected), then on with the room */
-      drawn: (strokes: Stroke[]) => {
-        drawing = strokes as InkStroke[];
+      drawn: (strokes: InkStroke[]) => {
+        drawing = strokes;
         adoptFighter(strokes);
         showMine();
       },
@@ -442,10 +442,11 @@ export default function OnlineClient() {
           pen={pen}
           onPen={setPen}
           onCancel={() => setPad(false)}
-          onDone={(next) => {
+          onDone={(next, extras) => {
             setPad(false);
-            if (!hasInk(next)) return;
-            actions.current.drawn(next);
+            const fight = padToFight(next, extras);
+            if (!hasInk(fight)) return;
+            actions.current.drawn(fight);
             const want = needDraw;
             setNeedDraw(null);
             if (want?.mode === "join" && want.code) actions.current.join(want.code);

@@ -37,6 +37,7 @@ function pages(mode: InputMode): Page[] {
           <li>{touch ? "Draw with your finger" : "Draw with the mouse (or a pen)"} in a box: a head, a body, two arms and two legs. Any shape works, even a dog or a car.</li>
           <li><b>Colours</b>: pick a pencil above the boxes. The colour stays on your fighter in the fight.</li>
           <li><b>⤢ expand</b> opens a big drawing pad with line weights, an eraser, undo and redo. <b>clear</b> wipes the box.</li>
+          <li><b>👤</b> picks a <b>ready-made fighter</b> instead (it can&apos;t be edited). On the big pad, <b>★ add a special move</b> gives your own drawing a move no doodle can: boomerang, stretch punch, long kick, mega leap and more.</li>
           <li><b>+ new fighter</b> adds another page (up to {MAX_FIGHTERS}). <b>play this</b> picks the fighter you play, <b>P2</b> picks player 2&apos;s, <b>🗑</b> deletes (tap twice).</li>
         </ul>
       ),

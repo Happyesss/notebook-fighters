@@ -40,6 +40,10 @@ export const SFX_GROUPS = {
   bones: ["block_2", "block_3"],
   quake: ["land_3", "ko_boom"],
   leap: ["jump_2", "wings_1"],
+  chalk: ["swish_2", "block_1"],
+  boomerang: ["swish_3", "swish_heavy_1"],
+  stretch: ["swish_heavy_3", "jump_1"],
+  longkick: ["swish_heavy_4", "land_2"],
 } as const;
 export type SfxGroup = keyof typeof SFX_GROUPS;
 export const SFX_FILES: string[] = [...new Set(Object.values(SFX_GROUPS).flat())];
@@ -414,6 +418,10 @@ export class Sfx {
       const lp = this.filter("lowpass", 250, 0.8);
       lp.connect(this.env(t, 0.4, 0.01, 0.6));
       this.noiseSrc(t, 0.6, 0.8).connect(lp);
+    } else if (kind === "chalk") {
+      // a sharp whistling chalk throw followed by a dry dust snap
+      this.osc("sine", 850, 420, t, 0.15, this.env(t, 0.15, 0.005, 0.25));
+      this.noiseSrc(t, 0.12, 0.4).connect(this.filter("highpass", 1800, 1.2));
     }
   }
 

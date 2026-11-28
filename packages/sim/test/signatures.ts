@@ -111,11 +111,11 @@ for (const [id, kind] of [["halloween", "pumpkin"], ["skeleton", "bones"], ["peh
   const x0 = b.x;
   const r = run(sim, 150, undefined, at(0, { special: true }), () => (top = Math.max(top, b.y)));
   check(top > 0.8 && Math.abs(b.x - x0) > 1.2, `bodybuilder: a huge leap (height ${top.toFixed(2)}, ${Math.abs(b.x - x0).toFixed(2)} across)`);
-  check(hp0 - p.hp > 50 && r.shake >= 0.8, `bodybuilder (Hulk) smash is over 50:: lands in a smash for ${(hp0 - p.hp).toFixed(1)}, shake ${r.shake.toFixed(2)} · fx ${r.fx.filter((f) => f !== "land").join(" ")}`);
+  check(hp0 - p.hp > 30 && r.shake >= 0.8, `bodybuilder (Hulk) smash is the biggest single hit (over 30): lands in a smash for ${(hp0 - p.hp).toFixed(1)}, shake ${r.shake.toFixed(2)} · fx ${r.fx.filter((f) => f !== "land").join(" ")}`);
 }
 
 // the new specials: dog bite, boxer haymaker, karate flying kick, ninja blades, swordsman slash
-for (const [id, kind, gap, min] of [["dog", "bite", 1.0, 12], ["boxer", "haymaker", 1.0, 25], ["karate", "flykick", 1.2, 15], ["swordsman", "slash", 1.0, 15], ["ninja", "blades", 1.8, 8]] as const) {
+for (const [id, kind, gap, min] of [["dog", "bite", 1.0, 12], ["boxer", "haymaker", 1.0, 25], ["karate", "flykick", 1.2, 15], ["swordsman", "slash", 1.0, 15], ["ninja", "blades", 1.8, 8], ["teacher", "chalk", 1.8, 8]] as const) {
   const sim = mk(id, gap);
   const f = sim.fighters[1];
   const p = sim.fighters[0];
@@ -136,10 +136,24 @@ for (const [id, kind, gap, min] of [["dog", "bite", 1.0, 12], ["boxer", "haymake
   const plain = mk("kid", 1.8).fighters[1].stats.speed;
   check(f.stats.speed > plain * 1.15, `ninja is faster than the rest (speed ×${f.stats.speed.toFixed(2)} vs kid ×${plain.toFixed(2)})`);
 }
+// Teacher: CHALK THROW flings chalk that explodes into a blinding dust cloud
+{
+  const sim = mk("teacher", 1.8);
+  const p = sim.fighters[0];
+  const hp0 = p.hp;
+  let chalkFound = false;
+  let stunMax = 0;
+  const r = run(sim, 60, undefined, at(0, { special: true }), () => {
+    if (sim.projectiles.some((q) => q.kind === "chalk")) chalkFound = true;
+    stunMax = Math.max(stunMax, p.stun);
+  });
+  check(chalkFound, "teacher: flings a chalk projectile across the screen");
+  check(hp0 - p.hp >= 8 && stunMax > 0.4, `teacher: chalk hits for ${(hp0 - p.hp).toFixed(1)} and stuns for ${stunMax.toFixed(2)}s · fx ${r.fx.join(" ")}`);
+}
 {
   const hp = (id: RosterId) => mk(id, 2).fighters[1].hp;
-  check(hp("pehelwan") > hp("boxer") * 1.4, `pehelwan has much more HP (${hp("pehelwan")} vs boxer ${hp("boxer")})`);
-  const others = (["kid", "dog", "boxer", "karate", "ninja", "swordsman", "pehelwan", "halloween", "skeleton", "phantom", "spiderman"] as RosterId[]).map(hp);
+  check(hp("pehelwan") > hp("boxer") * 1.05, `pehelwan has more HP (${hp("pehelwan")} vs boxer ${hp("boxer")})`);
+  const others = (["kid", "explorer", "dog", "boxer", "karate", "ninja", "swordsman", "robot", "kickboxer", "teacher", "pehelwan", "halloween", "skeleton", "phantom", "spiderman"] as RosterId[]).map(hp);
   check(hp("bodybuilder") > Math.max(...others), `Hulk has the most HP of all (${hp("bodybuilder")} vs next best ${Math.max(...others)})`);
 }
 

@@ -29,6 +29,10 @@ const ABOUT: Record<RosterId, string> = {
   bodybuilder: "Drawn a size bigger than everyone else on the page. Hulking arms, heavy hits, and a leap that crosses the arena.",
   phantom: "A dashing gentleman thief in a top hat and cape, with a domino mask and white gloves. Flashes a 'DX' calling card before vanishing into thin air — can phase out and slip through every attack.",
   spiderman: "Your friendly neighborhood Spider-Man! In a fully web-detailed suit, leaps high into the air and fires a web that traps and tangles the opponent for 3 seconds.",
+  explorer: "A bush explorer in a wide-brimmed hat and long socks. Throws a carved boomerang that curves across the page and comes back to his hand.",
+  robot: "A wind-up tin robot with a boxy head and a blinking antenna. Slow on its feet, but its spring-loaded arm punches you from across the page.",
+  kickboxer: "Wrapped hands, a rope headband and very long legs. Bounces on his toes, then sweeps a leg along the floor from far away: jump it!",
+  teacher: "The strict homeroom disciplinarian. Armed with a wooden ruler for sharp reprimands and chalk that blinds loud students across the room.",
 };
 
 const BUTTON_NAMES: Record<RivalProfile["moves"][number]["button"], string> = { punch: "Punch button", kick: "Kick button", run: "Run in + punch", air: "Jump + attack" };

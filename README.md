@@ -63,7 +63,7 @@ Doodle next to your fighter (shape **and** pencil colour count) and press **E / 
 <img src="docs/media/04-powers.jpg" width="100%" alt="Fireball vs water, lightning dash, wings, ice freeze">
 
 ### 💪 Pre-drawn rivals — including a pencil Hulk
-Ten hand-drawn computer opponents at real fighter height: **skinny kid, dog, boxer, karate guy, ninja, swordsman, pehelwan, halloween, skeleton and the bodybuilder** — a green, cross-hatched pencil Hulk ≈20 % taller than you, whose heavily-drawn chest and arms really do hit harder. Easy / Normal / Hard pick the tier, and the CPU is balanced with a scripted "casual human" bot (every test drawing wins **41–63 %** on Normal).
+Sixteen hand-drawn computer opponents at real fighter height: **skinny kid, explorer, dog, boxer, karate guy, ninja, swordsman, robot, kickboxer, teacher, pehelwan, halloween, skeleton, phantom, spider-man and the bodybuilder** — a green, cross-hatched pencil Hulk ≈20 % taller than you, whose heavily-drawn chest and arms really do hit harder. Easy / Normal / Hard pick the tier, and the CPU is balanced with a scripted "casual human" bot (every test drawing wins **41–63 %** on Normal).
 
 The four heavyweights bring **their own special** instead of drawing one to match yours:
 
@@ -78,8 +78,17 @@ The four heavyweights bring **their own special** instead of drawing one to matc
 | **Karate guy** | **Flying kick** | a heavy kick from the air |
 | **Ninja** | **Blade throw** | springs backwards and flings three blades (and he is faster than everyone) |
 | **Swordsman** | **Sword slash** | steps in and slices for big damage |
+| **Explorer** | **Boomerang** | curves out across the page and comes back: it hits going out or on the way back |
+| **Robot** | **Stretch punch** | a spring-loaded arm that punches from far across the page |
+| **Kickboxer** | **Long kick** | a leg stretches low along the floor and sweeps you: jump it |
+| **Teacher** | **Chalk throw** | a stick of chalk flung straight across the page: it stuns |
 
-The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per rival (all body types, Easy / Normal / Hard): Halloween 68 / 35 / 42 %, Skeleton 71 / 38 / 27 %, Pehelwan 54 / 19 / 32 %, Hulk 46 / 20 / 16 %: the Hulk is still the hardest.
+The computer uses them when they make sense (a pumpkin from range, the stomp only while you're on the ground, the scatter as an answer to your attack) and not on repeat. Easy waits longer between them (×1.5 the cooldown), Hard the least. Bot win rates per heavyweight (all body types, Easy / Normal / Hard, `tsx test/rivals.ts`): Halloween 58 / 40 / 38 %, Skeleton 67 / 39 / 25 %, Pehelwan 50 / 14 / 15 %, Phantom 64 / 21 / 13 %, Spider-Man 46 / 15 / 19 %, Hulk 68 / 19 / 10 %: the Hulk is still the hardest.
+
+### 👤 Don't want to draw? Pick a fighter. Want a fancier move? Pick a special.
+Every box has a **👤** button, and the big pad has **Draw my own / Pick a fighter** tabs. A ready-made fighter fights as drawn with its own special, and its page is locked (it can't be edited; **✎ draw my own instead** brings your drawing back). In a player's hands every ready-made fighter is tuned to the strength of a good drawing, so picking the Hulk is a style, not a win button.
+
+On the pad, **★ add a special move** gives your *own* drawing a move no doodle can: mega leap, flying kick, haymaker, **stretch punch**, **long kick**, **boomerang**, throwing stars, web shot, dash slash, lunge bite, pumpkin lob, ground shake, chalk throw, vanish or bone scatter (each tuned down to a fair hit for a drawn fighter). The pick rides along with the drawing as a tag, so it works vs the computer, in 2-player duels, in online rooms and in play nearby. A live **How it reads** box shows the HP, hit and speed numbers as you draw, and an empty page shows a faint dotted stick man to trace.
 
 <img src="docs/media/gallery/06-halloween-pumpkin-throw.png" width="49%" alt="Halloween throws a pumpkin"> <img src="docs/media/gallery/07-skeleton-bone-scatter.png" width="49%" alt="Skeleton: bone scatter"><br><img src="docs/media/gallery/09-pehelwan-ground-shake.png" width="49%" alt="Pehelwan: ground shake"> <img src="docs/media/gallery/08-hulk-mega-leap.png" width="49%" alt="The pencil Hulk's mega leap">
 
@@ -251,8 +260,11 @@ The sim is pure TypeScript and fully deterministic (fixed step, seeded randomnes
 
 ```bash
 pnpm typecheck      # tsc --noEmit in every workspace package
-pnpm test           # 17 headless sim suites: rig, shapes, recognize, duel, ko, powers, specials, signatures,
-                    #   stats, edge, reach, versus, scribble, rivalcheck, rapier, roster, nearby
+pnpm test           # 19 headless sim suites: rig, shapes, recognize, duel, ko, powers, specials, signatures,
+                    #   stats, edge, reach, versus, scribble, rivalcheck, rapier, roster, nearby, picks, allfights
+                    #   (allfights: every character as rival, as your pick, and in duels vs every other one,
+                    #   with every frame audited for walls, floor, NaNs, overlap and stalls; tsx test/allfights.ts 3
+                    #   for more rounds, PHYS=rapier for the Rapier ragdoll)
 pnpm --filter @nf/sim test:duel     # …or any one suite
 pnpm --filter @nf/sim balance       # casual-human bot vs the CPU on every level (win-rate table)
 pnpm --filter @nf/sim rivals        # the bot vs every rival on every level; the Hulk must stay the hardest

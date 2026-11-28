@@ -2,13 +2,13 @@
  * Duel simulation: the player's drawn fighter vs a rival on one notebook page.
  * Fixed 60 Hz step; gameplay drives Animator moves; Animator drives the drawn ink.
  */
-import { DEFAULT_TUNING, SIM_DT, type InkStroke, type PlayerInput, type Pt, type Tuning } from "@nf/shared";
+import { DEFAULT_TUNING, SIM_DT, readTag, type InkStroke, type PlayerInput, type Pt, type Tuning } from "@nf/shared";
 import { Animator, isAttack, type MoveName, type Pose } from "./anim";
 import { J, inferRig, fightStrokes, skinStrokes, sketchFighter, scaleRig, type Deform, type Joints, type Rig } from "./rig";
 import { pickRival, rosterById, type RosterEntry, type RosterId } from "./roster";
 import { computeStats, type FighterStats, type PartKey } from "./stats";
 import { RapierRagdoll, loadPhysics, physicsReady } from "./physics";
-import { POWER_INFO, counterOf, elementMult, isSignature, powerDoodle, type Element, type PowerKind } from "./powers";
+import { PICKED_DMG, POWER_INFO, counterOf, elementMult, isPickable, isSignature, powerDoodle, type Element, type PowerKind, type Signature } from "./powers";
 
 export type FxEvent =
   /** `move`: the strike that landed (punch, kick, swing…); `heavy`: the striker is a sized-up hulk (deeper sound) */
@@ -52,10 +52,15 @@ export type FighterSnap = {
   invisible: number;
   /** Web shot: 0..1 while webbed / tangled (0 = free) */
   webbed: number;
+  /** Stretch punch / Long kick: the stretched limb (world space, shoulder or hip → fist or foot) while it is out */
+  stretch?: { a: Pt; b: Pt; low: boolean } | null;
+  /** a ready-made fighter from the roster (its id), when this side picked one instead of drawing */
+  preset?: string | null;
 };
 
 /** a thrown power: fireball, water wave, ice shard */
-export type Projectile = { kind: Element | "pumpkin" | "quake" | "web" | "blade"; owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; dmg: number; g?: number };
+/** `ax`: a sideways pull (the boomerang curving back), `spent`: it has already hit once */
+export type Projectile = { kind: Element | "pumpkin" | "quake" | "web" | "blade" | "chalk" | "boomerang"; owner: number; x: number; y: number; vx: number; vy: number; r: number; life: number; dmg: number; g?: number; ax?: number; spent?: boolean };
 /** a slippery puddle left by a water wave: the other side walks slowly through it */
 export type Puddle = { x: number; w: number; t: number; owner: number };
 
@@ -151,7 +156,7 @@ export const WALL_X = STAGE + 0.3;
 export const SCATTER_T = 0.55;
 const SCATTER_STEP = 0.6;
 /** Phase out: duration of invisibility (seconds) */
-export const PHANTOM_T = 2.4;
+export const PHANTOM_T = 1.6;
 /** Web shot: how long the target is tangled (seconds) */
 export const WEB_T = 3.0;
 /** a signature special's cooldown by level (Easy waits longer) */
@@ -163,7 +168,7 @@ const G_SCALE = 0.35; // tuning gravity (m/s²-ish) → figure heights / s²
 
 /** gravity on a lobbed pumpkin (figure heights / s²) */
 const PUMPKIN_G = 3.4;
-const SPECIAL_COLOR: Record<PowerKind, string> = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c", phantom: "#8e5bc9", web: "#cccccc", bite: "#a3322b", haymaker: "#c23b32", flykick: "#2a241c", blades: "#3a3470", slash: "#5b6b7a" };
+const SPECIAL_COLOR: Record<PowerKind, string> = { fire: "#e07a2f", water: "#1d4f89", lightning: "#c4962c", ice: "#3f7fbf", wings: "#2a241c", shield: "#2a241c", spikes: "#2a241c", pumpkin: "#e07a2f", bones: "#2a241c", quake: "#8a5a32", leap: "#2a241c", phantom: "#8e5bc9", web: "#cccccc", bite: "#a3322b", haymaker: "#c23b32", flykick: "#2a241c", blades: "#3a3470", slash: "#5b6b7a", chalk: "#fefee8", boomerang: "#a0642d", stretch: "#c23b32", longkick: "#2a241c" };
 /** the dash-type specials: how far the body lunges, and what one clean hit does (dmg before the level's scaling) */
 const DASH_SPECIAL: Partial<Record<PowerKind, { v: number; t: number; dmg: number; kb: number; stun: number; reach: number }>> = {
   bite: { v: 5.2, t: 0.3, dmg: 18, kb: 1.4, stun: 0.5, reach: 0.3 },
@@ -172,13 +177,23 @@ const DASH_SPECIAL: Partial<Record<PowerKind, { v: number; t: number; dmg: numbe
   slash: { v: 3.8, t: 0.3, dmg: 22, kb: 1.8, stun: 0.5, reach: 0.5 },
 };
 /** damage (before scaling) of the area / projectile signature specials */
-const HULK_SMASH = 100;
-const QUAKE_DMG = 24;
+// (tuned with test/rivals.ts: the Hulk stays the hardest rival, but a casual player can beat him on Easy)
+const HULK_SMASH = 46;
+const QUAKE_DMG = 18;
 const BLADE_DMG = 6;
+/** Stretch punch / Long kick: how far the limb shoots out (figure heights), how long wind-up + out-and-back takes, one hit */
+const STRETCH_WIND = 0.11;
+const STRETCH = {
+  stretch: { len: 1.55, dur: 0.56, dmg: 15, kb: 2.2, stun: 0.45 },
+  longkick: { len: 1.45, dur: 0.62, dmg: 13, kb: 1.3, stun: 0.75 },
+} as const;
+/** Boomerang: thrown this fast, pulled back this hard (turns ~2.4 figure heights out), hits once */
+const BOOMERANG = { v: 4.6, pull: 4.4, dmg: 12 };
+const NO_STRETCH = { t: 0, dur: 0, len: 0, low: false, hit: false, aimY: 0 };
 const isElement = (k: string): k is Element => k === "fire" || k === "water" || k === "lightning" || k === "ice";
 
 /** where f.x may go: its drawn body (torso + head, as drawn) stays between the walls */
-function wallBounds(f: { facing: number; rig: Rig }): [number, number] {
+export function wallBounds(f: { facing: number; rig: Rig }): [number, number] {
   const back = Math.min(WALL_BODY, f.rig.extent.back);
   const front = Math.min(WALL_BODY, f.rig.extent.front);
   return f.facing > 0 ? [-WALL_X + back, WALL_X - front] : [-WALL_X + front, WALL_X - back];
@@ -223,7 +238,13 @@ class Fighter {
   dive = 0;
   diveHit = false;
   airJumps = 0;
-  pendingShot = { t: -1, kind: null as Element | "pumpkin" | "quake" | "web" | "blades" | null };
+  pendingShot = { t: -1, kind: null as Element | "pumpkin" | "quake" | "web" | "blades" | "chalk" | "boomerang" | null };
+  /** Stretch punch / Long kick in progress (dur 0 = none) */
+  stretch = { ...NO_STRETCH };
+  /** the special was picked for this drawing (or came with a ready-made fighter): PICKED_DMG tunes it to a fair hit */
+  picked = false;
+  /** the roster fighter this side picked instead of drawing (null: its own drawing) */
+  preset: RosterEntry | null = null;
   /** the special's full cooldown (a signature special is slower on the easier levels) */
   coolMax = 0;
   /** Bone scatter: seconds left lying in a pile of bones (nothing hits it) */
@@ -289,6 +310,7 @@ class Fighter {
     this.scatter = 0;
     this.invisible = 0;
     this.webbed = 0;
+    this.stretch = { ...NO_STRETCH };
     this.slam = false;
     this.lunge = { v: 0, t: 0 };
     this.pendingJump = -1;
@@ -325,7 +347,24 @@ class Fighter {
       scatter: this.scatter > 0 ? Math.min(1, this.scatter / SCATTER_T) : 0,
       invisible: this.invisible > 0 ? Math.min(1, this.invisible / PHANTOM_T) : 0,
       webbed: this.webbed > 0 ? Math.min(1, this.webbed / WEB_T) : 0,
+      stretch: this.stretchLine(),
+      preset: this.preset?.id ?? null,
     };
+  }
+  /** the stretched limb right now: from the shoulder (or hip) straight out toward the aim, eased out and back */
+  stretchLine(): { a: Pt; b: Pt; low: boolean } | null {
+    const s = this.stretch;
+    if (s.dur <= 0 || this.ko) return null;
+    // a short wind-up (readable: you can jump the sweep), then out and back
+    const u = (s.t - STRETCH_WIND) / (s.dur - STRETCH_WIND);
+    if (u <= 0) return null;
+    const k = Math.min(1, 1.25 * Math.sin(Math.PI * Math.min(1, u)));
+    const a = this.world(this.anim.joints[s.low ? J.hipF : J.shF]);
+    let ext = Math.max(0.05, s.len * k);
+    const edge = this.facing > 0 ? WALL_X - a.x : a.x + WALL_X;
+    ext = Math.min(ext, Math.max(0.05, edge));
+    const by = s.low ? this.y + 0.1 : a.y + (s.aimY - a.y) * Math.min(1, ext / s.len);
+    return { a, b: { x: a.x + this.facing * ext, y: by }, low: s.low };
   }
 }
 
@@ -361,11 +400,13 @@ export type SimOptions = {
 export const GAME_PACE = 0.72;
 /** pre-drawn rivals: overall strength by tier (1 kid/dog, 2 boxer/karate/ninja/swordsman, 3 pehelwan/bodybuilder) */
 /** a pre-drawn rival with a power: its overall strength by power (tuned with test/bot.ts) */
-export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95, phantom: 1, web: 1.02, bite: 1, haymaker: 1, flykick: 1, blades: 1, slash: 1 };
+export const RIVAL_POWER_STEP: Partial<Record<PowerKind, number>> = { fire: 1.04, water: 1, lightning: 0.99, ice: 0.9, wings: 1, shield: 0.9, spikes: 1, pumpkin: 1.12, bones: 0.97, quake: 1, leap: 0.95, phantom: 1, web: 1.02, bite: 1, haymaker: 1, flykick: 1, blades: 1, slash: 1, chalk: 1, boomerang: 1, stretch: 1, longkick: 1 };
 /** the CPU blocks a beast's attacks less often (tuned with the bot: a four-legged drawing was blocked into 0% wins on Hard) */
 const HARD_TO_READ = new Set<string>(["bite", "tailWhip", "charge", "pounce"]);
 export const HARD_TO_READ_BLOCK = 0.5;
-export const ROSTER_TIER_STEP: Record<1 | 2 | 3, number> = { 1: 0.94, 2: 1, 3: 1.3 };
+export const ROSTER_TIER_STEP: Record<1 | 2 | 3, number> = { 1: 0.94, 2: 1, 3: 1.05 };
+/** a ready-made fighter picked by a player: its overall strength (1 = the plain sketch rival, about a good drawing) */
+export const PRESET_STEP = 1.02;
 /** how far the CPU's thinking clock stays toward real time at a slower game pace (0 = paced like the fight, 1 = real time) */
 export const AI_PACE = Number((globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NF_AI_PACE ?? 1);
 
@@ -445,20 +486,35 @@ export class NotebookSim {
   private rivalAuto: boolean;
 
   constructor(opts: SimOptions = {}) {
-    const playerRig = (opts.player && inferRig(opts.player)) || inferRig(sketchFighter(3, "#2a241c"))!;
+    // a drawing may carry a tag (a picked special, or a ready-made fighter instead of a drawing)
+    const tagged = [readTag(opts.player), readTag(opts.rival)];
+    const presets = tagged.map((t) => (t.tag?.preset ? rosterById(t.tag.preset) : null));
+    const ink = tagged.map((t, i) => presets[i]?.strokes ?? (t.ink.length ? t.ink : null));
+    const hasRival = !!opts.rival && (!!ink[1] || !!presets[1]);
+    const playerRig = (ink[0] && inferRig(ink[0])) || inferRig(sketchFighter(3, "#2a241c"))!;
     this.ai = opts.ai ?? "on";
     this.difficulty = opts.difficulty ?? "normal";
-    this.playerInk = opts.player ?? null;
-    this.rivalAuto = !opts.rival && opts.rivalPower === "auto";
+    this.playerInk = ink[0];
+    this.rivalAuto = !hasRival && opts.rivalPower === "auto";
     const rivalPower = opts.rivalPower === "auto" ? rivalPowerFor(playerRig, this.difficulty) : opts.rivalPower ?? null;
-    this.rivalId = opts.rival ? null : opts.rivalId ?? null;
-    this.rivalEntry = this.rivalId ? (this.rivalId === "auto" ? pickRival(opts.player ?? null, this.difficulty) : rosterById(this.rivalId)) : null;
-    const rivalRig = (opts.rival && inferRig(opts.rival)) || inferRig(rivalStrokes(this.rivalEntry?.signature ? null : rivalPower, this.rivalEntry?.strokes))!;
+    this.rivalId = hasRival ? null : opts.rivalId ?? null;
+    this.rivalEntry = this.rivalId ? (this.rivalId === "auto" ? pickRival(ink[0], this.difficulty) : rosterById(this.rivalId)) : null;
+    const rivalRig = (hasRival && ink[1] && inferRig(ink[1])) || inferRig(rivalStrokes(this.rivalEntry?.signature ? null : rivalPower, this.rivalEntry?.strokes))!;
     this.fighters = [new Fighter(playerRig, "#2a241c", -1.1), new Fighter(rivalRig, "#1d4f89", 1.1)];
     this.koPhysics = opts.physics === "rapier" && physicsReady() ? "rapier" : "classic";
     for (const f of this.fighters) f.anim.physics = this.koPhysics;
     this.applySignature();
     this.fairRival();
+    // the player's side (and player 2's drawing in a duel or online) gets its picked special / ready-made fighter
+    for (const i of hasRival ? [0, 1] : [0]) {
+      const f = this.fighters[i];
+      const preset = presets[i];
+      if (preset) {
+        f.preset = preset;
+        this.fitToRoster(f, preset, true);
+        if (preset.signature) this.giveSpecial(f, preset.signature);
+      } else if (isPickable(tagged[i].tag?.special)) this.giveSpecial(f, tagged[i].tag!.special as Signature);
+    }
     this.countdownLength = opts.countdown ?? 0;
     this.countdown = this.countdownLength;
     this.pace = Math.max(0.2, Math.min(2, opts.pace ?? GAME_PACE));
@@ -496,10 +552,10 @@ export class NotebookSim {
   checksum(): number {
     const nums: number[] = [this.frame, this.round, this.wins[0], this.wins[1], this.hitstop, this.countdown];
     for (const f of this.fighters) {
-      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0, f.invisible, f.webbed);
+      nums.push(f.x, f.y, f.vx, f.vy, f.hp, f.facing, f.cool, f.stun, f.ko ? 1 : 0, f.anim.time, f.scatter, f.slam ? 1 : 0, f.invisible, f.webbed, f.stretch.t, f.stretch.dur);
       for (const j of f.anim.joints) nums.push(j.x, j.y);
     }
-    for (const p of this.projectiles) nums.push(p.x, p.y, p.vx, p.life);
+    for (const p of this.projectiles) nums.push(p.x, p.y, p.vx, p.life, p.spent ? 1 : 0);
     for (const q of this.puddles) nums.push(q.x, q.t);
     const buf = new Float64Array(nums);
     const u8 = new Uint8Array(buf.buffer);
@@ -567,14 +623,31 @@ export class NotebookSim {
     const e = this.rivalEntry;
     const f = this.fighters[1];
     if (!e || !f) return;
+    this.fitToRoster(f, e);
+  }
+
+  /** a special picked for a drawing (or a ready-made fighter's own): replaces the doodle's special */
+  private giveSpecial(f: Fighter, sig: Signature) {
+    f.special = sig;
+    f.element = null;
+    f.powerMult = 1;
+    f.picked = true;
+    f.coolMax = POWER_INFO[sig].cooldown;
+    f.cool = Math.min(f.cool, 1.5);
+  }
+
+  /** a roster fighter's strength (the CPU's, or a player who picked it): see fairRival */
+  private fitToRoster(f: Fighter, e: RosterEntry, player = false) {
     // the reference is the plain sketch rival without a power, so the players' power budget (POWER_EDGE)
     // and how strong each power is in the CPU's hands (RIVAL_POWER_STEP) are tuned separately
     const ref = computeStats(inferRig(rivalStrokes(null))!);
-    const tier = ROSTER_TIER_STEP[e.tier] * (f.special ? RIVAL_POWER_STEP[f.special] ?? 1 : 1);
+    // a player who picks a ready-made fighter gets a fair one: as strong as a good drawing (PRESET_STEP), with
+    // only a little of a heavyweight's extra HP, so picking the Hulk is a style, not a win button
+    const tier = player ? PRESET_STEP : ROSTER_TIER_STEP[e.tier] * (f.special ? RIVAL_POWER_STEP[f.special] ?? 1 : 1);
     const avg = (st: typeof ref) => (Object.values(st.dmg) as number[]).reduce((a, b) => a + b, 0) / Object.keys(st.dmg).length;
-    const k = (avg(ref) / Math.max(0.2, avg(f.stats))) * tier;
+    const k = (avg(ref) / Math.max(0.2, avg(f.stats))) * tier * (player ? 1 : e.dmgMult ?? 1);
     for (const key of Object.keys(f.stats.dmg) as (keyof typeof f.stats.dmg)[]) f.stats.dmg[key] = Math.round(f.stats.dmg[key] * k * 100) / 100;
-    f.stats.hp = Math.round(ref.hp * tier * (e.hpMult ?? 1));
+    f.stats.hp = Math.round(ref.hp * tier * (player ? 1 + ((e.hpMult ?? 1) - 1) * 0.3 : e.hpMult ?? 1));
     f.stats.speed *= e.speedMult ?? 1;
     f.hp = f.stats.hp;
     if (e.size || e.stance) f.grow(e.size ?? 1, e.stance ?? null);
@@ -746,7 +819,7 @@ export class NotebookSim {
       f.vx = 0;
       return;
     }
-    const busy = f.anim.busy && (isAttack(f.anim.move) || f.anim.move === "hit" || f.anim.move === "hitLow" || f.anim.move === "jumpCrouch");
+    const busy = (f.anim.busy && (isAttack(f.anim.move) || f.anim.move === "hit" || f.anim.move === "hitLow" || f.anim.move === "jumpCrouch")) || f.stretch.dur > 0;
     const stunned = f.stun > 0 || f.scatter > 0 || f.webbed > 0;
     // held states
     const wantBlock = !!input.block && !f.airborne && !stunned;
@@ -797,7 +870,7 @@ export class NotebookSim {
     const g = tuning.gravity * G_SCALE;
     this.gNow = g;
     f.stun = Math.max(0, f.stun - dt);
-    if (f.webbed > 0) {
+    if (f.webbed > 0 || f.stretch.dur > 0) {
       f.vx = 0;
       f.lunge = { v: 0, t: 0 };
     }
@@ -906,6 +979,20 @@ export class NotebookSim {
       const back = Math.min(need, Math.max(0, room));
       att.x -= s * back;
       vic.x += s * (need - back);
+    }
+    this.pinToWalls(a, b);
+  }
+
+  /** a push never shoves a body through the margin: whoever is against the wall stays, the other gives way */
+  private pinToWalls(a: Fighter, b: Fighter) {
+    for (const [f, o] of [[a, b], [b, a]] as const) {
+      const [lo, hi] = wallBounds(f);
+      const x = Math.max(lo, Math.min(hi, f.x));
+      if (x === f.x) continue;
+      o.x += x - f.x;
+      f.x = x;
+      const [olo, ohi] = wallBounds(o);
+      o.x = Math.max(olo, Math.min(ohi, o.x));
     }
   }
 
@@ -1199,6 +1286,21 @@ export class NotebookSim {
       }
       cast("punch", true);
       f.pendingShot = { t: 0.14, kind: "web" };
+    } else if (kind === "chalk") {
+      // Teacher: throws a piece of classroom chalk that bursts into a dust cloud
+      cast("punch");
+      f.pendingShot = { t: 0.12, kind: "chalk" };
+    } else if (kind === "boomerang") {
+      cast("punch");
+      f.pendingShot = { t: 0.12, kind: "boomerang" };
+    } else if (kind === "stretch" || kind === "longkick") {
+      // the arm (or a leg, low along the floor) shoots out like a spring and snaps back
+      const low = kind === "longkick";
+      const spec = STRETCH[kind];
+      cast(low ? "kick" : "punch");
+      f.vx = 0;
+      const chest = foe.world(foe.anim.joints[J.chest]).y;
+      f.stretch = { t: 0, dur: spec.dur, len: spec.len, low, hit: false, aimY: Math.max(f.y + 0.25, Math.min(f.y + 0.75, chest)) };
     }
   }
 
@@ -1209,7 +1311,8 @@ export class NotebookSim {
     const scale = this.ai === "on" ? (att === this.fighters[0] ? prof.playerDmg : prof.rivalDmg * prof.rivalSpecial) : 1;
     const elem = kind === "fire" || kind === "water" || kind === "lightning" || kind === "ice" ? kind : null;
     const counter = elementMult(elem, vic.element);
-    let dmg = dmg0 * scale * att.powerMult * att.stats.bodyScale * counter * vic.stats.armour.torso;
+    const picked = att.picked && isSignature(kind) ? PICKED_DMG[kind] ?? 1 : 1;
+    let dmg = dmg0 * scale * picked * att.powerMult * att.stats.bodyScale * counter * vic.stats.armour.torso;
     const dir = Math.sign(vic.x - att.x) || att.facing;
     const front = (vic.x - att.x) * vic.facing < 0;
     const color = SPECIAL_COLOR[kind];
@@ -1233,7 +1336,8 @@ export class NotebookSim {
     if (kind === "water") vic.burn.t = 0; // puts the fire out
     if (kind === "ice") vic.frozen = 1.7 * att.powerMult;
     if (kind === "web") {
-      vic.webbed = WEB_T;
+      // a picked web shot holds a little shorter (the rival's was tuned against its slow cooldown)
+      vic.webbed = att.picked ? WEB_T * 0.6 : WEB_T;
       vic.vx = 0;
     }
     if (kind === "water") this.puddles.push({ x: vic.x, w: 0.45, t: 3, owner: this.fighters.indexOf(att) });
@@ -1297,6 +1401,15 @@ export class NotebookSim {
             const targetY = foe.y + 0.45;
             const vy = (targetY - y0) / flightTime;
             this.projectiles.push({ kind: "web", owner: i, x: x0, y: y0, vx: speed * f.facing, vy, r: 0.09, life: 1.8, dmg: 5 });
+          } else if (k === "boomerang") {
+            // flies out flat at chest height, the pull curves it back to the thrower
+            const x0 = f.x + f.facing * (f.rig.extent.front + 0.06);
+            const y0 = Math.max(f.y + 0.35, Math.min(f.y + 0.6, hand.y));
+            this.projectiles.push({ kind: "boomerang", owner: i, x: x0, y: y0, vx: BOOMERANG.v * f.facing, vy: 0.1, g: 0.1, r: 0.075, life: 2.6, dmg: BOOMERANG.dmg, ax: -BOOMERANG.pull * f.facing });
+          } else if (k === "chalk") {
+            const at = f.world(f.anim.joints[J.handF]);
+            this.projectiles.push({ kind: "chalk", owner: i, x: at.x + f.facing * 0.08, y: at.y, vx: 4.8 * f.facing, vy: 0.04, r: 0.065, life: 1.8, dmg: 14 });
+            this.fx.push({ kind: "whoosh", ...at, dir: f.facing, move: "punch" });
           } else {
             const y = k === "water" ? 0.2 : Math.max(0.3, Math.min(0.55, hand.y));
             const spec = { fire: { v: 3.3, r: 0.075, dmg: 9 }, water: { v: 2.6, r: 0.2, dmg: 7 }, ice: { v: 3.0, r: 0.065, dmg: 8 }, lightning: { v: 0, r: 0, dmg: 0 } }[k];
@@ -1331,6 +1444,7 @@ export class NotebookSim {
         f.webbed = Math.max(0, f.webbed - dt);
         f.vx = 0; // webbed fighters can't move
       }
+      if (f.stretch.dur > 0) this.stretchStep(f, foe, frozenTime ? 0 : dt);
       // dashes and dives hit once on contact
       const gap = Math.abs(foe.x - f.x) - f.rig.extent.front - foe.rig.extent.front;
       if (f.dash.t > 0 && !f.dash.hit && !foe.ko && !(foe.invisible > 0)) {
@@ -1354,6 +1468,12 @@ export class NotebookSim {
     // shots fly; opposite shots clash (water douses fire, fire melts ice, ice freezes water, lightning … has no shot)
     for (const p of this.projectiles) {
       if (p.g) p.vy -= p.g * dt;
+      if (p.ax) p.vx += p.ax * dt;
+      // a boomerang on its way back is caught by its thrower
+      if (p.kind === "boomerang" && p.ax && Math.sign(p.vx) === Math.sign(p.ax)) {
+        const o = F[p.owner];
+        if (!o.ko && Math.abs(p.x - o.x) < 0.2 && p.y > o.y - 0.1 && p.y < o.y + 1.1) p.life = 0;
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
@@ -1385,9 +1505,17 @@ export class NotebookSim {
       let d = Infinity;
       for (const [a, b] of BONE_PAIRS) d = Math.min(d, segDist(p, vic.world(vj[a]), vic.world(vj[b])));
       if (d < p.r + 0.06) {
+        if (p.kind === "boomerang") {
+          if (p.spent) continue;
+          // it hits once, then (going out) bounces straight back toward the thrower
+          p.spent = true;
+          if (p.ax && Math.sign(p.vx) !== Math.sign(p.ax)) p.vx = -p.vx * 0.6;
+          this.specialHit(att, vic, "boomerang", p.dmg, 1.2, 0.35, { x: p.x, y: Math.max(0.15, p.y) }, true);
+          continue;
+        }
         p.life = 0;
-        const kb = p.kind === "water" ? 2.8 : p.kind === "quake" ? 1.5 : p.kind === "pumpkin" ? 1.3 : p.kind === "web" ? 0.3 : p.kind === "blade" ? 0.5 : 1.1;
-        const stun = p.kind === "fire" ? 0.25 : p.kind === "quake" ? 0.75 : p.kind === "pumpkin" ? 0.5 : p.kind === "web" ? 0.1 : 0.3;
+        const kb = p.kind === "water" ? 2.8 : p.kind === "quake" ? 1.5 : p.kind === "pumpkin" ? 1.3 : p.kind === "web" ? 0.3 : p.kind === "blade" ? 0.5 : p.kind === "chalk" ? 0.6 : 1.1;
+        const stun = p.kind === "fire" ? 0.25 : p.kind === "quake" ? 0.75 : p.kind === "pumpkin" ? 0.5 : p.kind === "web" ? 0.1 : p.kind === "chalk" ? 0.65 : 0.3;
         this.specialHit(att, vic, p.kind === "blade" ? "blades" : p.kind, p.dmg, kb, stun, { x: p.x, y: Math.max(0.15, p.y) }, true);
       }
     }
@@ -1399,6 +1527,43 @@ export class NotebookSim {
     this.projectiles = this.projectiles.filter((p) => p.life > 0 && Math.abs(p.x) < STAGE + 0.4);
     for (const q of this.puddles) q.t -= dt;
     this.puddles = this.puddles.filter((q) => q.t > 0);
+  }
+
+  /** Stretch punch / Long kick: the limb goes out and back; the first touch of the foe's body hits (a low sweep misses a jumper) */
+  private stretchStep(f: Fighter, foe: Fighter, dt: number) {
+    const s = f.stretch;
+    const hurt = f.anim.move === "hit" || f.anim.move === "hitLow" || f.scatter > 0 || f.webbed > 0;
+    s.t += dt;
+    if (s.t >= s.dur || hurt) {
+      f.stretch = { ...NO_STRETCH };
+      return;
+    }
+    if (s.hit || foe.ko || foe.invisible > 0 || foe.scatter > 0 || s.t > STRETCH_WIND + (s.dur - STRETCH_WIND) * 0.6) return;
+    const line = f.stretchLine();
+    if (!line) return;
+    const vj = foe.anim.joints;
+    let best = Infinity;
+    let at = line.b;
+    // the outer half of the limb (it moves fast: test along it, not just the fist)
+    for (const k of [0.5, 0.65, 0.8, 0.9, 1]) {
+      const p = lerpPt(line.a, line.b, k);
+      for (const [a, b] of BONE_PAIRS) {
+        const d = segDist(p, foe.world(vj[a]), foe.world(vj[b]));
+        if (d < best) {
+          best = d;
+          at = p;
+        }
+      }
+    }
+    if (best < 0.1) {
+      s.hit = true;
+      // snap back from here
+      const mid = STRETCH_WIND + (s.dur - STRETCH_WIND) / 2;
+      if (s.t < mid) s.t = 2 * mid - s.t;
+      const kind = s.low ? "longkick" : "stretch";
+      const spec = STRETCH[kind];
+      this.specialHit(f, foe, kind, spec.dmg, spec.kb, spec.stun, at);
+    }
   }
 
   /** Mega leap lands: a smash that hits anyone near the landing (in the air it misses) */
@@ -1467,7 +1632,8 @@ export class NotebookSim {
         // an animal's bite, tail whip, charge or pounce comes low and from odd angles: harder to read and block
         const read = HARD_TO_READ.has(foe.anim.move) ? HARD_TO_READ_BLOCK : 1;
         // the skeleton or phantom's answer to a hit coming in: fall to bits / phase out (the hit whiffs)
-        if ((me.special === "bones" || me.special === "phantom") && me.cool <= 0 && gap < 0.9 + reach && this.rnd() < prof.special * 1.6) {
+        // (vanishing is the stronger answer, so the phantom reaches for it less often)
+        if ((me.special === "bones" || me.special === "phantom") && me.cool <= 0 && gap < 0.9 + reach && this.rnd() < prof.special * (me.special === "phantom" ? 0.9 : 1.6)) {
           out.special = true;
           return out;
         }
@@ -1498,7 +1664,10 @@ export class NotebookSim {
           : k === "bite" || k === "slash" ? g > 0.1 && g < 1.2
           : k === "haymaker" ? g > 0.1 && g < 1.0
           : k === "flykick" ? g > 0.2 && g < 2.2
-          : k === "blades" ? g > 0.2 && g < 3.2
+          : k === "blades" || k === "chalk" ? g > 0.2 && g < 3.2
+          : k === "boomerang" ? g > 0.3 && g < 2.4
+          : k === "stretch" ? g > 0.15 && g < 1.35
+          : k === "longkick" ? g > 0.1 && g < 1.25 && grounded
           : k === "fire" || k === "water" || k === "ice" ? g > 0.35 : k === "lightning" || k === "wings" ? g > 0.15 && g < 1.4 : k === "shield" ? g < 0.8 : g < 0.45;
         if (fits) {
           out.special = true;

@@ -8,7 +8,38 @@ export type Pt = { x: number; y: number };
  * ignores it, so it changes neither the reading nor the stats. "head" rides the head, "torso" the body,
  * "auto" follows whichever bone each point is nearest (limb outlines).
  */
-export type InkStroke = { color: string; points: Pt[]; w?: number; deco?: "head" | "torso" | "weapon" | "auto" };
+export type InkStroke = { color: string; points: Pt[]; w?: number; deco?: "head" | "torso" | "weapon" | "auto"; tag?: FighterTag };
+
+/**
+ * A card clipped to a drawing: a special move picked from the list (instead of one read from a power
+ * doodle), or a ready-made fighter from the computer's roster (`preset`, whose drawing can't be edited).
+ * It travels as an ink-less first stroke, so every path that carries a drawing (local storage, online
+ * rooms, play nearby) carries the card too, and old clients just see a stroke with no points.
+ */
+export type FighterTag = { special?: string; preset?: string };
+
+/** split a drawing into its ink and its tag (the sim validates the tag's values itself) */
+export function readTag(strokes: InkStroke[] | null | undefined): { ink: InkStroke[]; tag: FighterTag | null } {
+  if (!strokes) return { ink: [], tag: null };
+  let tag: FighterTag | null = null;
+  const ink: InkStroke[] = [];
+  for (const s of strokes) {
+    if (s && s.tag && typeof s.tag === "object" && (!s.points || s.points.length === 0)) {
+      const t: FighterTag = {};
+      if (typeof s.tag.special === "string") t.special = s.tag.special.slice(0, 24);
+      if (typeof s.tag.preset === "string") t.preset = s.tag.preset.slice(0, 24);
+      if (t.special || t.preset) tag = t;
+    } else ink.push(s);
+  }
+  return { ink, tag };
+}
+
+/** the drawing with its tag in front (none when the tag is empty) */
+export function withTag(ink: InkStroke[], tag: FighterTag | null | undefined): InkStroke[] {
+  const clean = ink.filter((s) => !(s.tag && s.points.length === 0));
+  if (!tag || (!tag.special && !tag.preset)) return clean;
+  return [{ color: "transparent", points: [], tag: { ...(tag.special ? { special: tag.special } : {}), ...(tag.preset ? { preset: tag.preset } : {}) } }, ...clean];
+}
 
 export type PlayerInput = {
   /** -1 left, 0 none, 1 right */

@@ -206,16 +206,21 @@ export default function PlayClient() {
       const card = (i: number) => {
         const f = created.fighters[i];
         const mv = f.anim.moves;
-        const power = f.special ? `${POWER_INFO[f.special].special} (${POWER_INFO[f.special].cooldown}s) · ${[...f.passives].map((k) => POWER_INFO[k].passive).join(" · ")}` : null;
-        return cardFor(f.stats, f.rig.kind, [mv.punch, mv.kick].map((m) => ({ name: cap(title(m)), mult: f.stats.dmg[moveStriker(m)] })), power, i === 1 ? created.rivalEntry?.name ?? null : null);
+        // a picked special (or a ready-made fighter's own) explains itself; drawn doodles add their passives
+        const why = [...(f.picked && f.special ? [f.special] : []), ...[...f.passives].filter((k) => k !== f.special)].map((k) => POWER_INFO[k].passive);
+        const power = f.special ? `${POWER_INFO[f.special].special} (${f.coolMax}s)${why.length ? " · " + why.join(" · ") : ""}` : null;
+        return cardFor(f.stats, f.rig.kind, [mv.punch, mv.kick].map((m) => ({ name: cap(title(m)), mult: f.stats.dmg[moveStriker(m)] })), power, i === 1 ? created.rivalEntry?.name ?? f.preset?.name ?? null : f.preset?.name ?? null);
       };
       setCards({ you: card(0), rival: card(1) });
       // a new level redraws the CPU's power: refresh the cards
       cardsRef.current = () => setCards({ you: card(0), rival: card(1) });
       const article = /^[aeiou]/i.test(rig.kind) ? "an" : "a";
+      const me = created.fighters[0];
       setReading(
-        drawn
-          ? `${versus ? "P1: " : "I read "}${article} ${rig.kind}: ${summary}. Moves: ${title(moves.punch)} / ${title(moves.kick)}${extra ? " · " + extra : ""}${created.fighters[0].special ? ` · special: ${POWER_INFO[created.fighters[0].special].special}` : ""}${versus ? ` — P2: ${created.fighters[1].rig.kind}${created.fighters[1].special ? `, special ${POWER_INFO[created.fighters[1].special].special}` : ""}${drawn2 ? "" : " (sketch: P2 can draw one on the notebook page)"}` : ""}`
+        me.preset
+          ? `${versus ? "P1: " : "You picked "}${me.preset.name} (ready-made): ${me.preset.blurb}. Moves: ${title(moves.punch)} / ${title(moves.kick)}${me.special ? ` · special: ${POWER_INFO[me.special].special}` : ""}${versus ? ` — P2: ${created.fighters[1].preset?.name ?? created.fighters[1].rig.kind}${created.fighters[1].special ? `, special ${POWER_INFO[created.fighters[1].special].special}` : ""}` : ""}`
+          : drawn
+          ? `${versus ? "P1: " : "I read "}${article} ${rig.kind}: ${summary}. Moves: ${title(moves.punch)} / ${title(moves.kick)}${extra ? " · " + extra : ""}${created.fighters[0].special ? ` · special: ${POWER_INFO[created.fighters[0].special].special}` : ""}${versus ? ` — P2: ${created.fighters[1].preset?.name ?? created.fighters[1].rig.kind}${created.fighters[1].special ? `, special ${POWER_INFO[created.fighters[1].special].special}` : ""}${drawn2 ? "" : " (sketch: P2 can draw one on the notebook page)"}` : ""}`
           : "No drawing found: using a sketch fighter. Draw one in the notebook.",
       );
       if (stop) {
@@ -689,7 +694,7 @@ export default function PlayClient() {
               ))}
             </ul>
             <p className="card-rival">
-              {twoP ? "P2" : cards.rival.name ? `Rival: ${cards.rival.name}` : "Rival"} · {cards.rival.kind}: HP {cards.rival.hp} · {cards.rival.moves.map((m) => `${m.name.toLowerCase()} ×${m.mult.toFixed(2)}`).join(" · ")} · speed ×{cards.rival.speed.toFixed(2)}{cards.rival.power ? ` · ★ ${cards.rival.power}` : ""}
+              {twoP ? `P2${cards.rival.name ? `: ${cards.rival.name}` : ""}` : cards.rival.name ? `Rival: ${cards.rival.name}` : "Rival"} · {cards.rival.kind}: HP {cards.rival.hp} · {cards.rival.moves.map((m) => `${m.name.toLowerCase()} ×${m.mult.toFixed(2)}`).join(" · ")} · speed ×{cards.rival.speed.toFixed(2)}{cards.rival.power ? ` · ★ ${cards.rival.power}` : ""}
             </p>
           </div>
         </aside>

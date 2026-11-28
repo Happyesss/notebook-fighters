@@ -561,6 +561,9 @@ kbd {
 .meter[data-power="fire"] .meter-fill { background: repeating-linear-gradient(-45deg, #e07a2f, #e07a2f 3px, #f3c49b 3px, #f3c49b 6px); }
 .meter[data-power="water"] .meter-fill, .meter[data-power="ice"] .meter-fill { background: repeating-linear-gradient(-45deg, #3f7fbf, #3f7fbf 3px, #b5cfe8 3px, #b5cfe8 6px); }
 .meter[data-power="pumpkin"] .meter-fill { background: repeating-linear-gradient(-45deg, #e07a2f, #e07a2f 3px, #2a241c 3px, #2a241c 6px); }
+.meter[data-power="boomerang"] .meter-fill { background: repeating-linear-gradient(-45deg, #a0642d, #a0642d 3px, #e8cfa8 3px, #e8cfa8 6px); }
+.meter[data-power="stretch"] .meter-fill, .meter[data-power="longkick"] .meter-fill { background: repeating-linear-gradient(-45deg, #c23b32, #c23b32 3px, #f0c4bf 3px, #f0c4bf 6px); }
+.meter[data-power="chalk"] .meter-fill { background: repeating-linear-gradient(-45deg, #f5f5e8, #f5f5e8 3px, #c4962c 3px, #c4962c 6px); }
 .meter[data-power="wings"] .meter-fill, .meter[data-power="shield"] .meter-fill, .meter[data-power="spikes"] .meter-fill, .meter[data-power="bones"] .meter-fill, .meter[data-power="quake"] .meter-fill, .meter[data-power="leap"] .meter-fill { background: repeating-linear-gradient(-45deg, #6b6357, #6b6357 3px, #cfc7b8 3px, #cfc7b8 6px); }
 .meter-label { position: relative; padding-left: 0.3rem; color: #2a241c; white-space: nowrap; }
 .meter[data-state="ready"] { box-shadow: 0 0 0 2px rgba(196, 150, 44, 0.55); }
@@ -881,6 +884,87 @@ html[data-input="touch"] .keys-legend { display: none !important; }
   .sketch-end { margin-left: 0; flex: 1 1 100%; justify-content: flex-end; }
   .sketch-btn { font-size: 1rem; padding: 0 0.45rem; }
 }
+
+/* the pad: draw my own / pick a fighter, labels, the locked page, the side read-out, the pickers */
+.sketch-mode { display: flex; gap: 0.3rem; }
+.sketch-tab {
+  flex: 1; min-height: 2.4rem; padding: 0 0.6rem; cursor: pointer; touch-action: manipulation; white-space: nowrap;
+  font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1.1rem; color: #2a241c;
+  border: 1.5px solid #2a241c; border-radius: 999px; background: #fffaf1;
+}
+.sketch-tab[aria-pressed="true"] { background: #1d4f89; border-color: #1d4f89; color: #fffaf1; }
+.sketch-label { display: none; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7f6c; margin-bottom: -0.2rem; }
+.sketch .pencil:disabled, .sketch-brush:disabled { opacity: 0.35; cursor: default; }
+.sketch-page[data-locked="true"] canvas { cursor: not-allowed; }
+.sketch-lock {
+  position: absolute; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem;
+  padding: 0.35rem 0.5rem; border-radius: 10px; background: rgba(255, 250, 241, 0.94); border: 1.5px solid #2a241c;
+  font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1.05rem; color: #2a241c; box-shadow: 2px 3px 0 rgba(42, 36, 28, 0.15);
+}
+.sketch-lock .sketch-btn { min-height: 2rem; font-size: 1rem; }
+.sketch-ghost { position: absolute; inset: 6% 12%; width: 76%; height: 88%; color: rgba(42, 36, 28, 0.22); pointer-events: none; }
+.sketch-ghost-label text { font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 20px; fill: rgba(138, 90, 50, 0.55); }
+.sketch-side { display: flex; gap: 0.5rem; flex: none; min-width: 0; }
+.side-card {
+  display: flex; flex-direction: column; gap: 0.25rem; flex: 1 1 0; min-width: 0; padding: 0.45rem 0.6rem;
+  background: #fffaf1; border: 1.5px solid rgba(42, 36, 28, 0.35); border-radius: 10px;
+}
+.side-title { font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1.15rem; color: #2a241c; }
+.side-special { display: flex; align-items: center; gap: 0.4rem; font-size: 1.05rem; }
+.side-icon { font-size: 1.6rem; line-height: 1; }
+.side-note { font-size: 0.85rem; color: #5c564c; line-height: 1.3; }
+.side-stats { font-size: 0.95rem; color: #2a241c; font-weight: 600; }
+.side-btn { align-self: flex-start; margin-top: 0.15rem; border-color: #c4962c; box-shadow: 2px 2px 0 #c4962c; }
+.pad-picker { align-self: stretch; justify-self: stretch; width: 100%; height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; display: flex; flex-direction: column; gap: 0.5rem; }
+.pad-picker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.8rem; position: sticky; top: 0; background: #f6f0e2; padding-bottom: 0.3rem; z-index: 1; }
+.pad-picker-head .side-note { flex: 1 1 12rem; }
+.pad-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr)); gap: 0.5rem; padding: 0 0.15rem 0.4rem; }
+.pad-grid-specials { grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); }
+.pad-card {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.45rem; cursor: pointer; text-align: center; touch-action: manipulation;
+  background: #fffaf1; border: 1.5px solid rgba(42, 36, 28, 0.4); border-radius: 10px; color: #2a241c; font: inherit;
+}
+.pad-card:hover { border-color: #2a241c; }
+.pad-card[aria-pressed="true"] { border-color: #c23b32; box-shadow: 0 0 0 2px #c23b32 inset, 3px 3px 0 rgba(194, 59, 50, 0.35); }
+.pad-thumb { width: 100%; aspect-ratio: 3 / 4; display: block; }
+.pad-card-name { font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1.1rem; line-height: 1.1; }
+.pad-card-sub { font-size: 0.78rem; color: #5c564c; line-height: 1.25; }
+.pad-card-cool { font-size: 0.72rem; color: #8a7f6c; }
+.pad-special { align-items: flex-start; text-align: left; }
+.pad-special-icon { font-size: 1.9rem; line-height: 1; }
+@media (min-aspect-ratio: 1/1) {
+  .sketch-mode { flex-direction: column; }
+  .sketch-tab { flex: none; text-align: left; }
+  .sketch-side { flex-direction: column; width: 13.5rem; overflow-y: auto; }
+  .side-card { flex: none; }
+  .sketch-label { display: block; }
+}
+@media (min-aspect-ratio: 1/1) and (max-height: 520px) {
+  .sketch-label { display: none; }
+  .sketch-side { width: 11.5rem; gap: 0.3rem; }
+  .side-card { padding: 0.3rem 0.45rem; }
+  .side-note { font-size: 0.75rem; }
+  .sketch-tab { min-height: 2rem; font-size: 0.95rem; }
+}
+@media (max-aspect-ratio: 1/1) and (max-width: 640px) {
+  .sketch-mode { flex: 1 1 100%; }
+  .sketch-side { gap: 0.35rem; }
+  .side-card { padding: 0.3rem 0.45rem; }
+  .side-note { font-size: 0.75rem; }
+  .side-title { font-size: 1rem; }
+  .pad-grid { grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr)); }
+  .pad-grid-specials { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }
+}
+/* the home page's boxes: a ready-made fighter, a picked special */
+.slot[data-locked="true"] canvas { cursor: pointer; }
+.slot-chip {
+  position: absolute; left: 0.35rem; bottom: 0.35rem; max-width: calc(100% - 0.7rem); padding: 0.05rem 0.45rem; border-radius: 999px;
+  font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 0.95rem; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(255, 250, 241, 0.92); border: 1.5px solid #c4962c; color: #2a241c; pointer-events: none;
+}
+.slot-chip.locked { border-color: #1d4f89; }
+.slot-pick-btn { border: none; background: transparent; color: #1d4f89; font-family: var(--font-hand), "Patrick Hand", cursive; font-size: 1rem; cursor: pointer; padding: 0 0.2rem; }
+.slot-hint .slot-hint-or { display: block; font-size: 0.85em; margin-top: 0.2rem; }
 
 /* online lobby: copy the room code / link */
 .lobby .room-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
